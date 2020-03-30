@@ -10,21 +10,24 @@ Please find Open Food Facts API documentation [here](http://en.wiki.openfoodfact
 
 ## *Structure*
 
-This application is built using OOP, MVC and SOLID principles.
+This application is built using MVC and SOLID principles.
 Modules are separated as specified below:
 
-* Model : Classes used in the core mainly to
-  * Build local database
-  * Get datas from Open Food Facts API
-  * Clean them
-  * Fill local database with cleaned datas
+* Model :
+  * Gets datas from Open Food Facts API
+  * Cleans datas collected
+  * Sends data to local database
 
-* View : User Interface asking for choices
-  * Between a list of categories
-  * Between a list of products
-  * Register program response or not, continue with an other search or quit
+* View :
+  * Displays user Interface asking for choices between lists of:
+    * categories
+    * products
+  * Allows user to save program response (or not), continue with an other search or quit
 
-* Controler : To verify user inputs and response saves
+* Controler :
+  * Verifies User inputs and saves
+  * Handles Model's interactions with local database
+  * Builds Tables in local database
 
 ## *Requirements*
 
@@ -39,5 +42,9 @@ Please find all informations following the links below:
 
 ## *Instructions*
 
-1. Launch python or your prefered IDE
-2. Launch "purbeurre.py" and follow instructions displayed
+1. Launch mysql
+2. Create a Database and name it "Ratatouille"
+3. Creat a User with name = "Pur" and login = "Beurre"
+4. Grant all accesses to "Pur" on Database "Ratatouille"
+5. Launch python or your prefered IDE
+6. Launch "Yummy_change.py" and follow instructions displayed
