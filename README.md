@@ -40,24 +40,30 @@ Modules are separated as specified below:
   * Displays user Interface 
   * Displays application responses
 
-* Parameters : Constants used in other modules for easy access
+* Config : Constants used in other modules for easy access
 
 ## *Requirements*
 
-To use the application properly, you need to have mysql and python installed on your PC.
-You also need to have the module "requests" for python.
+To use the application properly, you need to have python and mysql installed on your PC.
+You also need to have the modules "requests" and "mysql.connector" for python.
 
 Please find all informations following the links below:
 
-* [Mysql](https://dev.mysql.com/downloads/mysql/#downloads)
 * [Python](https://www.python.org/downloads/)
+* [Mysql](https://dev.mysql.com/downloads/mysql/#downloads)
 * [Requests](http://fr.python-requests.org/en/latest/user/install.html#install)
+* [Mysql.connector](https://dev.mysql.com/doc/connector-python/en/connector-python-installation-binary.html)
 
 ## *Instructions*
 
-1. Launch mysql
-2. Create a Database and name it "Ratatouille"
-3. Creat a User with name = "Pur" and login = "Beurre"
-4. Grant all accesses to "Pur" on Database "Ratatouille"
-5. Launch python or your prefered IDE
+1. Launch the command shell of your operating system
+2. Launch mysql
+> mysql -h localhost -u root -p
+3. Create a Database and name it "ratatouille"
+> CREATE DATABASE ratatouille CHARACTER SET 'utf8';
+4. Create a User with name = "Pur" and login = "Beurre"
+> CREATE USER 'Pur'@'localhost' IDENTIFIED BY 'Beurre';
+5. Grant all accesses to "Pur" on Database "Ratatouille"
+> GRANT ALL PRIVILEGES ON Ratatouille.* TO 'Pur'@'localhost' WITH GRANT OPTION;
 6. Launch "yummy.py" and follow instructions displayed
+> python yummy.py

@@ -1,4 +1,5 @@
 # Get initial display using View
+# Launch requests to OFF in Model
 
 # Get categories using Model
 # Get proper categories display using View
