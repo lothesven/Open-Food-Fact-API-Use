@@ -42,7 +42,7 @@ credentials = {
   'raise_on_warnings': True
 }
 
-DB_NAME = 'ratatouill'
+DB_NAME = 'ratatouille'
 
 TABLES = {}
 TABLES['Products'] = (
