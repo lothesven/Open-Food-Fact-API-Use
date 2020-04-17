@@ -6,7 +6,7 @@
 
 # -*- coding: utf-8 -*
 
-categories = [
+CATEGORIES = [
     "Boissons-gazeuses", 
     "Biscuits-au-chocolat", 
     "Jus-de-fruit-pur-jus", 
@@ -19,9 +19,9 @@ categories = [
     "Soupes"
 ]
 
-grades = ['A', 'B', 'C', 'D', 'E']
+GRADES = ['A', 'B', 'C', 'D', 'E']
 
-criterias = (
+CRITERIAS = (
     'categories_tags,'
     'code,'
     'product_name_fr,'
@@ -33,30 +33,67 @@ criterias = (
     'url'
     )
 
-url = "https://fr.openfoodfacts.org/cgi/search.pl?"
-
-credentials = {
-  'user': 'Pur',
-  'password': 'Beurre',
-  'host': 'localhost',
-  'raise_on_warnings': True
-}
+URL = "https://fr.openfoodfacts.org/cgi/search.pl?"
 
 DB_NAME = 'ratatouille'
 
-TABLES = {}
-TABLES['Products'] = (
-    "CREATE TABLE `Products` ("
-    "  `code` int NOT NULL,"
-    "  `name` varchar(10) NOT NULL,"
-    "  `brand` varchar(30) NOT NULL,"
-    "  `categories` text NOT NULL,"
-    "  `description` text NOT NULL,"
-    "  `healthyness` varchar(1) NOT NULL,"
-    "  `popularity` int NOT NULL,"
-    "  `stores` varchar(30) NOT NULL,"
-    "  `url` varchar(50) NOT NULL,"
+CREDENTIALS = {
+  'user': 'Pur',
+  'password': 'Beurre',
+  'host': 'localhost',
+  'database': DB_NAME,
+  'raise_on_warnings': True
+}
 
-    "  PRIMARY KEY (`code`)"
+TABLES = {
+'History' : (
+    "CREATE TABLE `History` ("
+    "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+    "  `user_ID` INT,"
+    "  `date` TEXT NOT NULL,"
+    "  `action` TEXT NOT NULL,"
+    "  `result` TEXT NOT NULL"
+    ") ENGINE=InnoDB"
+    ),
+'Products' : (
+    "CREATE TABLE `Products` ("
+    "  `code` BIGINT NOT NULL PRIMARY KEY,"
+    "  `name` TEXT NOT NULL,"
+    "  `brands` TEXT NOT NULL,"
+    "  `category` VARCHAR(50) NOT NULL,"
+    "  `subcategories` TEXT NOT NULL,"
+    "  `description` TEXT NOT NULL,"
+    "  `healthyness` CHAR(1) NOT NULL,"
+    "  `popularity` INT NOT NULL,"
+    "  `stores` TEXT NOT NULL,"
+    "  `url` TEXT NOT NULL"
+    ") ENGINE=InnoDB"
+    ),
+'Users' : (
+    "CREATE TABLE `Users` ("
+    "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+    "  `name` VARCHAR(20) NOT NULL,"
+    "  `login` VARCHAR(20) NOT NULL"
+    ") ENGINE=InnoDB"
+    ),
+'Searches' : (
+    "CREATE TABLE `Searches` ("
+    "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+    "  `user_ID` INT UNSIGNED NOT NULL,"
+    "  `product_code` BIGINT NOT NULL,"
+    "  `substitute_code` BIGINT NOT NULL,"
+    "  CONSTRAINT `fk_searches_user_ID` FOREIGN KEY (`user_ID`) "         
+    "     REFERENCES `Users` (`ID`),"
+    "  CONSTRAINT `fk_searches_product_code` FOREIGN KEY (`product_code`) "         
+    "     REFERENCES `Products` (`code`)"
     ") ENGINE=InnoDB"
     )
+}
+
+HISTORY_INSERT = ("INSERT INTO History "
+              "(user_ID, date, action, result) "
+              "VALUES (%(user_ID)s, %(date)s, %(action)s, %(result)s)")
+
+PRODUCT_INSERT = ("INSERT INTO Products "
+              "(code, name, brands, category, subcategories, description, healthyness, popularity, stores, url) "
+              "VALUES (%(code)s, %(name)s, %(brands)s, %(category)s, %(subcategories)s, %(description)s, %(healthyness)s, %(popularity)s, %(stores)s, %(url)s)")

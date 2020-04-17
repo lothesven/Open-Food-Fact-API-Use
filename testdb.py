@@ -1,116 +1,45 @@
 # -*- coding: utf-8 -*
 
-'''from __future__ import print_function
+from __future__ import print_function
+import config as cf
+
+from datetime import date, datetime, timedelta
 
 import mysql.connector
 from mysql.connector import errorcode
 
-config = {
-  'user': 'Pur',
-  'password': 'Beurre',
-  'host': 'localhost',
-  'raise_on_warnings': True
-}
+history_values = {
+            "user_ID": 1, 
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+            "action": "this is an action", 
+            "result": "this is a result"
+            }
 
-DB_NAME = 'test'
-
-TABLES = {}
-TABLES['employees'] = (
-    "CREATE TABLE `employees` ("
-    "  `emp_no` int(11) NOT NULL AUTO_INCREMENT,"
-    "  `birth_date` date NOT NULL,"
-    "  `first_name` varchar(14) NOT NULL,"
-    "  `last_name` varchar(16) NOT NULL,"
-    "  `gender` enum('M','F') NOT NULL,"
-    "  `hire_date` date NOT NULL,"
-    "  PRIMARY KEY (`emp_no`)"
-    ") ENGINE=InnoDB")
-
-TABLES['departments'] = (
-    "CREATE TABLE `departments` ("
-    "  `dept_no` char(4) NOT NULL,"
-    "  `dept_name` varchar(40) NOT NULL,"
-    "  PRIMARY KEY (`dept_no`), UNIQUE KEY `dept_name` (`dept_name`)"
-    ") ENGINE=InnoDB")
-
-TABLES['salaries'] = (
-    "CREATE TABLE `salaries` ("
-    "  `emp_no` int(11) NOT NULL,"
-    "  `salary` int(11) NOT NULL,"
-    "  `from_date` date NOT NULL,"
-    "  `to_date` date NOT NULL,"
-    "  PRIMARY KEY (`emp_no`,`from_date`), KEY `emp_no` (`emp_no`),"
-    "  CONSTRAINT `salaries_ibfk_1` FOREIGN KEY (`emp_no`) "
-    "     REFERENCES `employees` (`emp_no`) ON DELETE CASCADE"
-    ") ENGINE=InnoDB")
-
-TABLES['dept_emp'] = (
-    "CREATE TABLE `dept_emp` ("
-    "  `emp_no` int(11) NOT NULL,"
-    "  `dept_no` char(4) NOT NULL,"
-    "  `from_date` date NOT NULL,"
-    "  `to_date` date NOT NULL,"
-    "  PRIMARY KEY (`emp_no`,`dept_no`), KEY `emp_no` (`emp_no`),"
-    "  KEY `dept_no` (`dept_no`),"
-    "  CONSTRAINT `dept_emp_ibfk_1` FOREIGN KEY (`emp_no`) "
-    "     REFERENCES `employees` (`emp_no`) ON DELETE CASCADE,"
-    "  CONSTRAINT `dept_emp_ibfk_2` FOREIGN KEY (`dept_no`) "
-    "     REFERENCES `departments` (`dept_no`) ON DELETE CASCADE"
-    ") ENGINE=InnoDB")
-
-TABLES['dept_manager'] = (
-    "  CREATE TABLE `dept_manager` ("
-    "  `dept_no` char(4) NOT NULL,"
-    "  `emp_no` int(11) NOT NULL,"
-    "  `from_date` date NOT NULL,"
-    "  `to_date` date NOT NULL,"
-    "  PRIMARY KEY (`emp_no`,`dept_no`),"
-    "  KEY `emp_no` (`emp_no`),"
-    "  KEY `dept_no` (`dept_no`),"
-    "  CONSTRAINT `dept_manager_ibfk_1` FOREIGN KEY (`emp_no`) "
-    "     REFERENCES `employees` (`emp_no`) ON DELETE CASCADE,"
-    "  CONSTRAINT `dept_manager_ibfk_2` FOREIGN KEY (`dept_no`) "
-    "     REFERENCES `departments` (`dept_no`) ON DELETE CASCADE"
-    ") ENGINE=InnoDB")
-
-TABLES['titles'] = (
-    "CREATE TABLE `titles` ("
-    "  `emp_no` int(11) NOT NULL,"
-    "  `title` varchar(50) NOT NULL,"
-    "  `from_date` date NOT NULL,"
-    "  `to_date` date DEFAULT NULL,"
-    "  PRIMARY KEY (`emp_no`,`title`,`from_date`), KEY `emp_no` (`emp_no`),"
-    "  CONSTRAINT `titles_ibfk_1` FOREIGN KEY (`emp_no`)"
-    "     REFERENCES `employees` (`emp_no`) ON DELETE CASCADE"
-    ") ENGINE=InnoDB")
-
-try:
-    cnx = mysql.connector.connect(**config) # connexion handling instance
-    cursor = cnx.cursor()
-except mysql.connector.Error as err:
-  if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-    print("Something is wrong with user name or password. Please check 'config.py'.")
-  else:
-    print(err)
+cnx = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
+cursor = cnx.cursor()
 
 def create_database(cursor):
     try:
-        cursor.execute("CREATE DATABASE {} DEFAULT CHARACTER SET 'UTF8MB4'".format(DB_NAME))
+        cursor.execute(
+            "CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(cf.DB_NAME))
     except mysql.connector.Error as err:
         print("Failed creating database: {}".format(err))
         exit(1)
 
 try:
-    cursor.execute("USE {}".format(DB_NAME))
+    cursor.execute("USE {}".format(cf.DB_NAME))
 except mysql.connector.Error as err:
+    print("Database {} does not exists.".format(cf.DB_NAME))
     if err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database {} does not exists. Please follow instructions in 'Readme.md'".format(DB_NAME))
+        create_database(cursor)
+        print("Database {} created successfully.".format(cf.DB_NAME))
+        cnx.database = cf.DB_NAME
     else:
         print(err)
         exit(1)
 
-for table_name in TABLES:
-    table_description = TABLES[table_name]
+for table_name in cf.TABLES:
+    table_description = cf.TABLES[table_name]
     try:
         print("Creating table {}: ".format(table_name), end='')
         cursor.execute(table_description)
@@ -122,9 +51,8 @@ for table_name in TABLES:
     else:
         print("OK")
 
+cursor.execute(cf.HISTORY_INSERT, history_values)
+cnx.commit()
+
 cursor.close()
-cnx.close()'''
-
-
-#############
-
+cnx.close()

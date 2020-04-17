@@ -56,7 +56,7 @@ class Category():
     def get_products(self):
         '''Use module requests to get products on Open Food Facts'''
         products = list()
-        for grade in cf.grades:
+        for grade in cf.GRADES:
             payload = {
                 'action': 'process',
                 'tagtype_0': 'categories',
@@ -65,13 +65,13 @@ class Category():
                 'tagtype_1': 'nutrition_grade_fr',
                 'tag_contains_1': 'contains',
                 'tag_1': grade,
-                'fields': cf.criterias,
+                'fields': cf.CRITERIAS,
                 'sort_by': 'unique_scans_n',
                 'json': 'true',
                 'page_size': '5'
             }
             print(payload)
-            request = requests.get(cf.url, params=payload)
+            request = requests.get(cf.URL, params=payload)
             for product in request.json().get('products'):
                 products.append(product)
 
@@ -126,7 +126,7 @@ class Category():
             elif product.get('ingredients_text_fr').strip() == "" :
                 problems += 1
 
-            # verify if categories are a non empty list
+            # verify if subcategories are a non empty list
             if type(product.get('categories_tags')) != list :
                 problems += 1
             elif product.get('categories_tags') == [] :
@@ -181,18 +181,32 @@ class Product():
 
     def __init__(self, category, informations):
         self.category = category
+        self.informations = informations
+
         self.code = informations.get('code')
         self.name = informations.get('product_name_fr')
         self.brand = informations.get('brands')
         self.description = informations.get('ingredients_text_fr')
-        self.categories = informations.get('categories_tags')
+        self.subcategories = informations.get('categories_tags')
         self.healthyness = informations.get('nutrition_grade_fr')
         self.popularity = informations.get('unique_scans_n')
         self.stores = informations.get('stores')
         self.url = informations.get('url')
 
     def __str__(self):
-        return "code = " + str(self.code) + "\n" + "name = " + str(self.name) + "\n" + "brands = " + str(self.brand) + "\n" + "description = " + str(self.description) +  "\n" + "categories = " + str(self.categories) +  "\n" + "healthyness = " + str(self.healthyness) + "\n" + "popularity = " + str(self.popularity) + "\n" + "stores = " + str(self.stores) + "\n" + "url = " + str(self.url)
+        self.informations = str({
+            "category": self.category,
+            "code": self.code,
+            "name": self.name,
+            "brands": self.brand,
+            "description": self.description,
+            "subcategories": self.subcategories,
+            "healthyness": self.healthyness,
+            "popularity": self.popularity,
+            "stores": self.stores,
+            "url": self.url
+        })
+        return self.informations
 
 
 class DatabaseInterraction():
@@ -200,9 +214,10 @@ class DatabaseInterraction():
     # Every function call leaves an history
     # Whennever connector is closed, write history in database just before
 
-    def __init__(self, action):
+    def __init__(self, action, user = 0): # user 0 refers to no defined user
         # action is a string refering to one specific operation
         self.action = action
+        self.user = user
 
         self.informations = None
         self.result = None
@@ -211,11 +226,11 @@ class DatabaseInterraction():
 
         self.history = {}
 
-        self.verify("self.connector = mysql.connector.connect(cf.credentials)")
+        self.verify("self.connector = mysql.connector.connect(**cf.CREDENTIALS)")
         self.verify("self.cursor = self.connector.cursor()")
         self.verify("""self.cursor.execute("USE {}".format(cf.DB_NAME))""")
 
-        exec(self.action)
+        exec("global i; self.action")
 
         self.leave_history() # Do not forget to create Table History
 
@@ -225,15 +240,23 @@ class DatabaseInterraction():
 
         self.action = "Attempt to create table {} with following instructions {}".format(name, self.informations)
 
-        print("Creating table {}: ".format(name), end='')
+        print("Creating table {}: ".format(name))
         self.result = self.verify("self.cursor.execute(self.informations)")
-        print(self.result)
         # Verify with creation instructions in self.informations
+        print(self.result)
 
         self.history[self.action] = self.result
 
-    """def insert_datas(self, informations):
-        pass"""
+    def insert_datas(self, informations, values):
+        # insert datas, provided table and informations
+        self.informations = "{}, {}".format(informations, values)
+        print(self.informations)
+
+        self.action = "Attempt to insert product data with following instructions: {}".format(self.informations)
+
+        self.result = self.verify("self.cursor.execute(self.informations)")
+        # Verify with insertion instructions in self.informations
+        print(self.result)
 
     def fetch_datas(self, informations):
         pass
@@ -263,15 +286,23 @@ class DatabaseInterraction():
     
     def leave_history(self):
 
-        print("Commiting ...")
+        # print("Commiting ...")
         print(self.verify("self.connector.commit()"))
 
-        # leave history by using self.insert_data() and self.history
+        # leave history by using self.insert_data(), self.history and self.user
+        history_values = {
+            "user_ID": self.user, 
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+            "action": self.action, 
+            "result": self.result
+            }
+        self.insert_datas(cf.HISTORY_INSERT, history_values)
+        print(self.verify("self.connector.commit()"))
 
         self.cursor.close()
         self.connector.close()
 
-        if self.result == "OK":
+        if history_values["result"] == "OK":
             self.result = True
 
 
@@ -287,9 +318,9 @@ class Database():
             results = []
             for i in cf.TABLES:
                 print(i)
-                action = """self.create_table("{}, {}".format(i, cf.TABLES.get(i))"""
-                i = DatabaseInterraction(action)
-                results.append(i.result)
+                action = """self.create_table("{}, {}".format(i, cf.TABLES.get(i)))"""
+                ref = DatabaseInterraction(action)
+                results.append(ref.result)
         
         for element in results:
             if element == "OK":
@@ -297,34 +328,45 @@ class Database():
             else:
                 cls.tables_created = False
                 break
+    
+    @classmethod
+    def drop_tables(cls):
+        for i in cf.TABLES:
+            action = "self.cursor.execute('DROP TABLE {}')".format(i)
+            ref = DatabaseInterraction(action)
+            print(ref.result)
 
     @classmethod
     def insert_product(cls, product):
         # product must be an instance of class Product
-        action = """self.insert_datas("{}".format(product))"""
-        ref = product.code
+        action = """self.insert_datas("{}, {}".format(cf.PRODUCT_INSERT, product.informations))"""
+        # carefull, this works only because product is printed in get_off_datas for now
         ref = DatabaseInterraction(action)
 
-        return ref.result
+        print("Product insertion :", ref.result)
 
     @classmethod
     def get_off_datas(cls):
-        for i in cf.categories:
+        for i in cf.CATEGORIES:
             print(i)
             i = Category(i)
             i.clean_datas()
             for j in i.products:
                 j = Product(i.name, j)
-                print(j)
-                print(Database.insert_product(j))
+                # print(j)
+                Database.insert_product(j)
             # print(i.subcategories)
             # print(len(i.subcategories))
 
 ####################################################################################################
 
 def install():
-    """Database.create_tables()"""
+    # create every table begining by history, fill table products
+    Database.create_tables()
     Database.get_off_datas()
+
+def uninstall():
+    Database.drop_tables()
 
 def list_categories():
     # if DatabaseSetting.tables_created:
