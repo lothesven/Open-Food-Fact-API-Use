@@ -208,40 +208,59 @@ class Product():
         return str(self.informations)
 
 
-class Procedures():
+class DatabaseProcedures():
+    # This class is not supposed to be instanciated
+    # Contains various procedure for database interactions
 
     all_tables_created = False
     all_products_inserted = False
 
+    connection = None
+    cursor = None
+
     @classmethod
-    def db_connexion(cls):
-        # for later code factorisation
-        pass
+    def connect(cls):
+        try:
+            print("Connecting to {}: ".format(cf.DB_NAME), end='')
+            cls.connection = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
+            cls.cursor = cls.connection.cursor()
+        except mysql.connector.Error as err:
+            if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+                print("Something is wrong with your user name or password")
+            elif err.errno == errorcode.ER_BAD_DB_ERROR:
+                print("Database does not exist")
+            else:
+                print(err)
+        else:
+            print("OK")
+        
+        return cls.connection, cls.cursor
     
     @classmethod
-    def create_tables(cls):
+    def disconnect(cls):
+        try:
+            cls.cursor.close()
+            cls.connection.close()
+        except:
+            print("An error occured for cursor and/or connexion closing.")
+    
+    @classmethod
+    def create_tables(cls, table_list = cf.TABLES.keys()): # maybe for specific table ?
+        # if specified, table_list argument must be a list of strings
         if cls.all_tables_created == False:
             tables_created = 0
             
-            try:
-                print("Connecting to {}: ".format(cf.DB_NAME), end='')
-                cnx = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
-                cursor = cnx.cursor()
-            except mysql.connector.Error as err:
-                if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-                    print("Something is wrong with your user name or password")
-                elif err.errno == errorcode.ER_BAD_DB_ERROR:
-                    print("Database does not exist")
-                else:
-                    print(err)
-            else:
-                print("OK")
+            cls.connect()
         
-            for table_name in cf.TABLES.keys():
-                table_description = cf.TABLES[table_name]
+            for table_name in table_list:
+                try:
+                    table_description = cf.TABLES[table_name]
+                except: # handle possible error when table_list contains strings not in cf.TABLES keys
+                    pass
+
                 try:
                     print("Creating table {}: ".format(table_name), end='')
-                    cursor.execute(table_description)
+                    cls.cursor.execute(table_description)
                     tables_created += 1
                 except mysql.connector.Error as err:
                     if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
@@ -252,126 +271,186 @@ class Procedures():
                 else:
                     print("OK")
         
-            cursor.close()
-            cnx.close()
+            cls.disconnect()
         
         if tables_created == len(cf.TABLES):
             cls.all_tables_created = True
         
-    @classmethod
-    def drop_tables(cls):
-        tables_deleted = 0
-        
-        try:
-            print("Connecting to {}: ".format(cf.DB_NAME), end='')
-            cnx = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
-            cursor = cnx.cursor()
-        except mysql.connector.Error as err:
-            if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-                print("Something is wrong with your user name or password")
-            elif err.errno == errorcode.ER_BAD_DB_ERROR:
-                print("Database does not exist")
-            else:
-                print(err)
-        else:
-            print("OK")
+        return tables_created
 
-        for table_name in reversed(cf.TABLES.keys()):
+    @classmethod
+    def drop_tables(cls, table_list = cf.TABLES.keys()): # maybe for specific table ?
+        # if specified, table_list argument must be a list of strings
+        tables_deleted = 0
+    
+        cls.connect()
+
+        for table_name in reversed(table_list):
             try:
                 print("Droping table {}: ".format(table_name), end='')
-                cursor.execute("DROP TABLE {}".format(table_name))
+                cls.cursor.execute("DROP TABLE {}".format(table_name))
                 tables_deleted += 1
             except mysql.connector.Error as err:
                 if err.errno == errorcode.ER_BAD_TABLE_ERROR:
                     print("Table doesn't exist")
-                    tables_deleted += 1 # deleted beforehand but deleted nonetheless
+                    if table_name in cf.TABLES.keys():
+                        tables_deleted += 1 # deleted beforehand but deleted nonetheless
                 else:
                     raise
             else:
                 print("OK")
         
-        cursor.close()
-        cnx.close()
-        
+        cls.disconnect()
+    
         if tables_deleted: # if even only one table have been droped
             cls.all_tables_created = False
+        
+        return tables_deleted
 
     @classmethod
     def insert_products_from_category(cls, category):
         # category refer to an instance of class Category
-        try:
-            print("Connecting to {}: ".format(cf.DB_NAME), end='')
-            cnx = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
-            cursor = cnx.cursor()
-        except mysql.connector.Error as err:
-            if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-                print("Something is wrong with your user name or password")
-            elif err.errno == errorcode.ER_BAD_DB_ERROR:
-                print("Database does not exist")
-            else:
-                print(err)
-        else:
-            print("OK")
+
+        cls.connect()
 
         for j in category.products:
             j = Product(category.name, category.subcategories, j)
             try:
                 print("Inserting product {}: ".format(j.informations['subcategories']), end='')
-                cursor.execute(cf.PRODUCT_INSERT, j.informations)
+                cls.cursor.execute(cf.PRODUCT_INSERT, j.informations)
             except mysql.connector.Error as err:
                 print(err)
             else:
                 print("Insertion ok")
         
-        cnx.commit()
+        cls.connection.commit()
 
-        cursor.close()
-        cnx.close()
+        cls.disconnect()
 
-    @classmethod
-    def get_off_datas(cls):
-        for i in cf.CATEGORIES:
-            print(i)
-            i = Category(i)
-            print("Number of different subcategories :", len(i.subcategories))
-            Procedures.insert_products_from_category(i)
+    @classmethod # Still to be tested
+    def check_user(cls, user, login):
+        # Verifies if specified user and login are in database
+        cls.connect()
+
+        query = "SELECT login FROM Users WHERE name = '{}'".format(user)
+
+        try:
+            print("Checking login for user {}: ".format(user), end='')
+            cls.cursor.execute(query)
+        except mysql.connector.Error as err:
+            print(err)
+        else:
+            try:
+                iter(cls.cursor)
+            except TypeError:
+                print("Cursor definition encountered an unknown issue causing it not to be iterable")
+            else:
+                registered_login = cls.cursor.fetchone()
+                if registered_login:
+                    if registered_login == login: # cursor content equals login
+                        print("User name and login are correct")
+                        return True
+                    elif registered_login != login: # cursor content doesn't match
+                        print("Incorrect login")
+                else: # cursor is empty
+                    print("User not found")
+        finally:
+            cls.disconnect()
+
+    @classmethod # Still to be tested
+    def create_user(cls, user, login):
+
+        cls.connect()
+        ID = "NULL"
+
+        try:
+            print("Creating user {}: ".format(user), end='')
+            cls.cursor.execute(cf.USER_INSERT, (ID, user, login))
+        except mysql.connector.Error as err:
+            print(err)
+            return False
+        else:
+            cls.connection.commit()
+            print("Creation ok")
+            return True
+        
+        finally:
+            cls.disconnect()
 
 ####################################################################################################
 
+def is_installed():
+    # check if database have already been installed
+    cnx, cursor = DatabaseProcedures.connect()
+
+    query = "SHOW TABLES"
+
+    cursor.execute(query)
+
+    result = cursor.fetchall()
+
+    cursor.close()
+    cnx.close()
+
+    if result:
+        return True
+    else:
+        return False
+
 def install():
-    # create every table begining by history, fill table products
-    Procedures.create_tables()
-    print("Tables created : ", Procedures.all_tables_created)
-    Procedures.get_off_datas()
+    # create every table begining by history, (fill table products ?)
+    DatabaseProcedures.create_tables()
+    print("Tables created : ", DatabaseProcedures.all_tables_created)
+    get_off_datas()
 
 def uninstall():
-    Procedures.drop_tables()
+    result = DatabaseProcedures.drop_tables()
+    return result
+
+def get_off_datas():
+    for i in cf.CATEGORIES:
+        print(i)
+        i = Category(i)
+        print("Number of different subcategories :", len(i.subcategories))
+        DatabaseProcedures.insert_products_from_category(i)
 
 def manage_user(name, login, action):
-    # when user launch the program leave choice: login or register
-    # gather name and login using an input in either choice
-    # if user try to log, action is log, else action is create
     # verify inputs for any devious attempts
-    # check if user already exist
+    str_name = str(name)
+    str_login = str(login)
+
+    if "".join(str_name.split()) == name and "".join(str_login.split()) == login:
+        # removes all whitespace characters (space, tab, newline, and so on) 
+        # compare to user input to detect devious SQL injection
+        # check if user already exist
+        if DatabaseProcedures.check_user(name, login):
+            if action == "log": # if action is log, everything is fine
+                print("login successfull")
+                return True
+            else: # user and login exists but action is create
+                print("Error: user and login already exists")
+        else: # user and/or login are not found
+            if action == "create": # if action is create, then create user
+                if DatabaseProcedures.create_user(name, login):
+                    print("User registered")
+                    return True
+                else:
+                    print("User not registered")
+            else:
+                print("could not check for user and login")
+    else:
+        print("Whitespace caracters are not allowed")
+    # if user try to log, action is log, else action is create
+    
     # if action is log and user exist, return "login successfull"
     # elif action is create and user doesn't exist, create it and return "user registered"
     # else return an error message
-    pass
+
+    # CONFIGURE RETURN PATERN
 
 def list_categories():
-    try:
-        print("Connecting to {}: ".format(cf.DB_NAME), end='')
-        cnx = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
-        cursor = cnx.cursor()
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with your user name or password")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
-        else:
-            print(err)
-    else:
-        print("OK")
+
+    cnx, cursor = DatabaseProcedures.connect()
 
     query = "SELECT category FROM Products"
 
@@ -390,19 +469,8 @@ def list_categories():
     return categories
 
 def list_products(category):
-    try:
-        print("Connecting to {}: ".format(cf.DB_NAME), end='')
-        cnx = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
-        cursor = cnx.cursor()
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with your user name or password")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
-        else:
-            print(err)
-    else:
-        print("OK")
+
+    cnx, cursor = DatabaseProcedures.connect()
 
     query = ("SELECT name, code FROM Products "
             "WHERE category = %s")
@@ -421,18 +489,18 @@ def list_products(category):
     return products
 
 def substitute(user, login, product_code):
+    return user, login, product_code # for now...
     # check if a subtitute have already been found for given product
     # if so, directly return it
     # else process algorythm for substitute finding
     # return a product with extended informations
-    pass
 
 def save_search(user, login, product_code, substitute_code):
     # inserts user searches in a special table
     # this must be a user choice
     pass
 
-uninstall()
+"""uninstall()
 install()
 print(list_categories())
-print(list_products("Fromages"))
+print(list_products("Fromages"))"""

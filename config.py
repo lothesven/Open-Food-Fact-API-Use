@@ -72,7 +72,7 @@ TABLES = {
 'Users' : (
     "CREATE TABLE `Users` ("
     "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
-    "  `name` VARCHAR(20) NOT NULL,"
+    "  `name` VARCHAR(20) NOT NULL UNIQUE,"
     "  `login` VARCHAR(20) NOT NULL"
     ") ENGINE=InnoDB"
     ),
@@ -97,3 +97,7 @@ HISTORY_INSERT = ("INSERT INTO History "
 PRODUCT_INSERT = ("INSERT INTO Products "
               "(code, name, brands, category, subcategories, description, healthyness, popularity, stores, url) "
               "VALUES (%(code)s, %(name)s, %(brands)s, %(category)s, %(subcategories)s, %(description)s, %(healthyness)s, %(popularity)s, %(stores)s, %(url)s)")
+
+USER_INSERT = ("INSERT INTO Users "
+              "(ID, name, login) "
+              "VALUES (%(ID)s, %(user)s, %(login)s)")
