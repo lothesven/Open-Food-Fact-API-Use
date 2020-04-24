@@ -11,7 +11,7 @@ class ProgramOutput():
 
     @classmethod
     def initial_display(cls):
-        return view.initial_display
+        return view.initial_display()
 
     @classmethod
     def categories_display(cls):
@@ -66,9 +66,13 @@ class UserRequestHandler():
     def log_in(cls, user, login):
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if cls.installed:
-            if md.manage_user(user, login, "login"):
-                return True
+            if user and login:
+                if md.manage_user(user, login, "login"):
+                    return True
+                else:
+                    return False
             else:
+                print("Empty user and/or login. Please retry and input something")
                 return False
         else:
             print("You need to install, then register before trying to log in")
@@ -78,9 +82,13 @@ class UserRequestHandler():
     def register(cls, user, login):
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if cls.installed:
-            if md.manage_user(user, login, "create"):
-                return True
+            if user and login:
+                if md.manage_user(user, login, "create"):
+                    return True
+                else:
+                    return False
             else:
+                print("Empty user and/or login. Please retry and input something")
                 return False
         else:
             print("You need to install first before trying to register")

@@ -47,7 +47,7 @@ CREDENTIALS = {
 
 TABLES = {
 'History' : (
-    "CREATE TABLE `History` ("
+    "CREATE TABLE IF NOT EXISTS `History` ("
     "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
     "  `user_ID` INT,"
     "  `date` TEXT NOT NULL,"
@@ -56,7 +56,7 @@ TABLES = {
     ") ENGINE=InnoDB"
     ),
 'Products' : (
-    "CREATE TABLE `Products` ("
+    "CREATE TABLE IF NOT EXISTS `Products` ("
     "  `code` BIGINT NOT NULL PRIMARY KEY,"
     "  `name` TEXT NOT NULL,"
     "  `brands` TEXT NOT NULL,"
@@ -70,14 +70,14 @@ TABLES = {
     ") ENGINE=InnoDB"
     ),
 'Users' : (
-    "CREATE TABLE `Users` ("
+    "CREATE TABLE IF NOT EXISTS `Users` ("
     "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
     "  `name` VARCHAR(20) NOT NULL UNIQUE,"
     "  `login` VARCHAR(20) NOT NULL"
     ") ENGINE=InnoDB"
     ),
 'Searches' : (
-    "CREATE TABLE `Searches` ("
+    "CREATE TABLE IF NOT EXISTS `Searches` ("
     "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
     "  `user_ID` INT UNSIGNED NOT NULL,"
     "  `product_code` BIGINT NOT NULL,"

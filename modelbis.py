@@ -245,8 +245,9 @@ class DatabaseProcedures():
             print("An error occured for cursor and/or connexion closing.")
     
     @classmethod
-    def create_tables(cls, table_list = cf.TABLES.keys()): # maybe for specific table ?
+    def create_tables(cls, table_list = cf.TABLES.keys()):
         # if specified, table_list argument must be a list of strings
+        # might be usefull if program gets bigger for content update
         if cls.all_tables_created == False:
             tables_created = 0
             
@@ -256,7 +257,7 @@ class DatabaseProcedures():
                 try:
                     table_description = cf.TABLES[table_name]
                 except: # handle possible error when table_list contains strings not in cf.TABLES keys
-                    pass
+                    continue
 
                 try:
                     print("Creating table {}: ".format(table_name), end='')
@@ -377,10 +378,17 @@ class DatabaseProcedures():
         finally:
             cls.disconnect()
 
+    @classmethod
+    def record_history(cls, user, action, result):
+        # procedure to store any action done on database when a user is logged in
+        pass
+
 ####################################################################################################
 
 def is_installed():
     # check if database have already been installed
+    # should be so if every table in config already exist
+
     cnx, cursor = DatabaseProcedures.connect()
 
     query = "SHOW TABLES"
@@ -392,13 +400,13 @@ def is_installed():
     cursor.close()
     cnx.close()
 
-    if result:
+    if len(result) == len(cf.TABLES.keys()):
         return True
     else:
         return False
 
 def install():
-    # create every table begining by history, (fill table products ?)
+    # create every table begining by history and fill table products
     DatabaseProcedures.create_tables()
     print("Tables created : ", DatabaseProcedures.all_tables_created)
     get_off_datas()
@@ -425,19 +433,19 @@ def manage_user(name, login, action):
         # check if user already exist
         if DatabaseProcedures.check_user(name, login):
             if action == "log": # if action is log, everything is fine
-                print("login successfull")
+                print("Login successfull")
                 return True
             else: # user and login exists but action is create
                 print("Error: user and login already exists")
         else: # user and/or login are not found
-            if action == "create": # if action is create, then create user
+            if action == "create": # if action is create, then try to create user
                 if DatabaseProcedures.create_user(name, login):
                     print("User registered")
                     return True
                 else:
                     print("User not registered")
-            else:
-                print("could not check for user and login")
+            else: # action is log but user/login haven't been found
+                print("Could not find user and login specified")
     else:
         print("Whitespace caracters are not allowed")
     # if user try to log, action is log, else action is create
@@ -446,8 +454,6 @@ def manage_user(name, login, action):
     # elif action is create and user doesn't exist, create it and return "user registered"
     # else return an error message
 
-    # CONFIGURE RETURN PATERN
-
 def list_categories():
 
     cnx, cursor = DatabaseProcedures.connect()
@@ -455,10 +461,16 @@ def list_categories():
     query = "SELECT category FROM Products"
 
     cursor.execute(query)
+    result = cursor.fetchall()
+
+    try:
+        iter(result)
+    except TypeError:
+        print("Result is empty and not iterable")
 
     categories = []
 
-    for category_tuple in cursor:
+    for category_tuple in result:
         category = category_tuple[0]
         if category not in categories:
             categories.append(category)
@@ -477,11 +489,17 @@ def list_products(category):
 
     cursor.execute(query, (category,))
 
+    result = cursor.fetchall()
+
+    try:
+        iter(result)
+    except TypeError:
+        print("Result is empty and not iterable")
+
     products = []
 
-    for (name, code) in cursor:
-        product = (name, code)
-        products.append(product)
+    for (name, code) in result:
+        products.append((name, code))
 
     cursor.close()
     cnx.close()
@@ -492,15 +510,26 @@ def substitute(user, login, product_code):
     return user, login, product_code # for now...
     # check if a subtitute have already been found for given product
     # if so, directly return it
-    # else process algorythm for substitute finding
-    # return a product with extended informations
+    # else process algorythm for substitute finding:
+
+    # find specified product's category and get every product that have:
+    # - same category
+    # - same or better healthyness
+    # - different code
+
+    # for each product compare subgategories list
+    # use a variable "proximity" to quantify how much lists are similar
+    # each time elements of same index matches, increment "proximity"
+
+    # weight proximity and healthyness to choose between products which one to return
+    # proximity should be quite a high integer while healthyness have only 5 possible values
+    # discard any product that has a proximity lower than half maximum proximity
+    # let's try to select the product with highest healthyness from top 5 proximity products
+
+    # when product is identified, check database to get extended informations about it
+    # if nothing matches return same product and congratulate user for already using best choice.
 
 def save_search(user, login, product_code, substitute_code):
     # inserts user searches in a special table
     # this must be a user choice
     pass
-
-"""uninstall()
-install()
-print(list_categories())
-print(list_products("Fromages"))"""
