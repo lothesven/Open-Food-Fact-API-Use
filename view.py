@@ -23,6 +23,12 @@ def products_display(products):
     return "\nyour choice : "
 
 # Class SubstituteDisplay
+def substitute_display(substitute):
+    print("\nPlease find below a suitable substitute : \n")
+    for information in substitute.keys():
+        print("Substitute {} : ".format(information), substitute[information])
+    return "\nwould you like to save this substitute ? [y/n] : "
+
 
 # Class RegistrationDisplay
 

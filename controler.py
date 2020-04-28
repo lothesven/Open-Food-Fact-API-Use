@@ -20,8 +20,13 @@ class ProgramOutput():
 
     @classmethod
     def products_display(cls):
-        # categories is a list
+        # products is a list
         return view.products_display(cls.products)
+
+    @classmethod
+    def substitute_display(cls):
+        # substitute is a dictionary
+        return view.substitute_display(cls.substitute)
 
 class UserRequestHandler():
 
@@ -67,7 +72,7 @@ class UserRequestHandler():
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if cls.installed:
             if user and login:
-                if md.manage_user(user, login, "login"):
+                if md.manage_user(user, login, "log"):
                     return True
                 else:
                     return False
@@ -109,11 +114,12 @@ class UserRequestHandler():
             ProgramOutput.products = md.list_products(category)
 
     @classmethod
-    def call_substitute(cls, user, login, product_code):
+    def call_substitute(cls, product_code):
         # Get substitute provided a product using Model
         # Get proper substitute display using View
         if cls.installed:
-            ProgramOutput.substitute = md.substitute(user, login, product_code)
+            print("Getting substitute for {} ...".format(product_code))
+            ProgramOutput.substitute = md.get_substitute(product_code)
             
 
 # Register product and substitute using Model

@@ -102,11 +102,24 @@ def main():
                     choice = 0
                 
                 if 0 < choice <= valid_choices:
-                    ct.UserRequestHandler.call_substitute(user, login, ct.ProgramOutput.products[choice - 1][1])
+                    print(ct.ProgramOutput.products[choice - 1][1])
+                    ct.UserRequestHandler.call_substitute(ct.ProgramOutput.products[choice - 1][1])
                     chosen_product = True
             
-            print("Log out for now...")
+            choice = input(ct.ProgramOutput.substitute_display())
+
+            while choice != "y" and choice != "n":
+                print("\nYou must choose between 'Yes' by pressing 'y' or 'No' by pressing 'n'.\n")
+                choice = input(ct.ProgramOutput.substitute_display())
+
+            if choice == "y":
+                print("Register save")
+            else:
+                print("Choice between leave program or make another substitute search.")
+
             logged_in = False
+            chosen_category = False
+            chosen_product = False
 
         
     

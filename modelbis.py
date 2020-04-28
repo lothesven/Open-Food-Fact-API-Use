@@ -38,6 +38,9 @@ import json
 from datetime import date, datetime, timedelta
 
 import requests
+from random import randrange
+from math import floor
+
 import mysql.connector
 from mysql.connector import errorcode
 
@@ -69,7 +72,7 @@ class Category():
                 'fields': cf.CRITERIAS,
                 'sort_by': 'unique_scans_n',
                 'json': 'true',
-                'page_size': '5'
+                'page_size': cf.SIZE
             }
             print(payload)
             request = requests.get(cf.URL, params=payload)
@@ -334,6 +337,7 @@ class DatabaseProcedures():
         cls.connect()
 
         query = "SELECT login FROM Users WHERE name = '{}'".format(user)
+        print(query)
 
         try:
             print("Checking login for user {}: ".format(user), end='')
@@ -347,11 +351,12 @@ class DatabaseProcedures():
                 print("Cursor definition encountered an unknown issue causing it not to be iterable")
             else:
                 registered_login = cls.cursor.fetchone()
+                print(registered_login)
                 if registered_login:
-                    if registered_login == login: # cursor content equals login
+                    if registered_login[0] == login: # cursor content equals login
                         print("User name and login are correct")
                         return True
-                    elif registered_login != login: # cursor content doesn't match
+                    elif registered_login[0] != login: # cursor content doesn't match
                         print("Incorrect login")
                 else: # cursor is empty
                     print("User not found")
@@ -362,11 +367,10 @@ class DatabaseProcedures():
     def create_user(cls, user, login):
 
         cls.connect()
-        ID = "NULL"
 
         try:
             print("Creating user {}: ".format(user), end='')
-            cls.cursor.execute(cf.USER_INSERT, (ID, user, login))
+            cls.cursor.execute(cf.USER_INSERT, {"user": user, "login": login})
         except mysql.connector.Error as err:
             print(err)
             return False
@@ -379,7 +383,202 @@ class DatabaseProcedures():
             cls.disconnect()
 
     @classmethod
-    def record_history(cls, user, action, result):
+    def product_informations(cls, product_code, informations = "code, name, healthyness, brands, description, stores, url"):
+
+        cls.connect()
+
+        query = "SELECT {} FROM Products WHERE code = '{}'".format(informations, product_code)
+
+        try:
+            print("Retrieving informations from product '{}': ".format(product_code), end='')
+            cls.cursor.execute(query)
+        except mysql.connector.Error as err:
+            print(err)
+        else:
+            try:
+                iter(cls.cursor)
+            except TypeError:
+                print("Cursor definition encountered an unknown issue causing it not to be iterable")
+            else:
+                product_informations = cls.cursor.fetchall()
+                print("\n", product_informations)
+                if len(product_informations) > 1:
+                    return product_informations
+                elif len(product_informations) == 1:
+                    return product_informations[0]
+                else:
+                    print("Informations not found")
+        finally:
+            cls.disconnect()
+
+    @classmethod
+    def substitute(cls, product_code):
+
+        cls.connect()
+
+        query = "SELECT substitute_code FROM Substitutes WHERE product_code = {}".format(product_code)
+        print(query)
+
+        cls.cursor.execute(query)
+        result = cls.cursor.fetchone()
+
+        cls.disconnect()
+
+        # check if a subtitute have already been found for given product
+        # if so, directly return it
+
+        try:
+            result[0]
+        except TypeError:
+            print("No substitute already found for this product.")
+        else:
+            print("result[0] = ", result[0])
+            if result[0]:
+                return DatabaseProcedures.product_informations(result[0])
+                # for now only return one
+
+            
+        # else process algorythm for substitute finding:
+        category, healthyness, subcategories = DatabaseProcedures.product_informations(product_code, "category, healthyness, subcategories")
+        
+        subcategories = subcategories[1:-1].split(', ')
+        # remove "[" and "]" in the string, then remove ', ' to keep only 0 and 1 as a list of strings
+        print("category is: ", category)
+        print("healthyness is: ", healthyness)
+        print("subcategories are: ", subcategories)
+        # find specified product's category and get every product that have:
+        # - same category
+        # - same or better healthyness
+        # - different code
+
+        cls.connect()
+
+        query = ("SELECT code, subcategories, healthyness, popularity FROM Products WHERE category = '{}' AND healthyness <= '{}' AND code != '{}'".format(category, healthyness, product_code))
+
+        cls.cursor.execute(query)
+        result = cls.cursor.fetchall() # each product found should be a 4 elements tuple
+
+        cls.disconnect()
+
+        similar_products = []
+        max_proximity = 0
+        min_proximity = 999
+
+        for product in result:
+
+            proximity = 0
+
+            subcategory_list = product[1][1:-1].split(', ') 
+            # remove "[" and "]" in the string, then remove ', ' to keep only 0 and 1 as a list of strings
+
+            for index in range(len(subcategory_list)):
+                if subcategory_list[index] == subcategories[index]:
+                    proximity += 1
+
+            print("proximity after reading is : ", proximity)
+            
+            if proximity > max_proximity:
+                max_proximity = proximity
+                print("new max is : ", max_proximity)
+            
+            if proximity < min_proximity:
+                min_proximity = proximity
+                print("new min is : ", min_proximity)
+
+            similar_products.append([product[0], proximity, product[2], product[3]])
+
+        print("List with proximities : ", similar_products)
+        # for each product compare subgategories list
+        # use a variable "proximity" to quantify how much lists are similar
+        # each time elements of same index matches, increment "proximity"
+
+        indexes = []
+        delta_proximity = max_proximity - min_proximity
+        closeness = 0.8
+        # arbitrary number between 0 and 1
+        # higher leads to closer to max_proximity as minimum target for proximity
+        proximity_target = floor(min_proximity + delta_proximity * closeness)
+
+        print("proximity max is : ", max_proximity)
+        print("proximity min is : ", min_proximity)
+        print("delta is : ", delta_proximity)
+        print("proximity target is : ", proximity_target)
+
+        for index in range(len(similar_products)):
+            if similar_products[index][1] < proximity_target:
+                # if proximity target is set to max, < keep it whereas <= doesn't
+                indexes.append(index)
+
+        print("indexes where proximity is below target : ", indexes)
+
+        for index_element in reversed(indexes): 
+            # reversed to have indexes in descending order and avoid IndexError
+            print(similar_products.pop(index_element)) 
+            # removes every product with proximity lower than defined proximity
+
+        similar_products.sort(key = lambda a : a[1], reverse = True)
+        print("sorted and cleaned list : \n", similar_products)
+        # this command sort similar_products list based on proximity in descending order
+
+        if healthyness == "A" or healthyness == "a": 
+            print("already healthy")
+            # sorting using healthyness is irrelevant here so we use popularity
+            similar_products.sort(key = lambda a : a[3], reverse = True) 
+            # On same popularity, proximity order is unchanged
+            return similar_products[0][0] 
+            # higher popularity on minimum of proximity weight
+        else: 
+            # For any other healthyness than "A" sorting healthyness is needed
+            similar_products.sort(key = lambda a : a[2]) 
+            # On same healthyness, proximity order is unchanged
+            
+            equally_healthy_products = []
+
+            for index in range(len(similar_products)):
+                if similar_products[0][2] == similar_products[index][2]:
+                    # check for equally healthy products in similar_products
+                    equally_healthy_products.append(similar_products[index])
+                    # this keeps only highest healthyness products with proximity order unchanged between them
+            
+            print("List of same healthyness :\n", equally_healthy_products)
+
+            if len(equally_healthy_products) == 1: 
+                # if the higher healthyness concerns only one similar_product
+                return similar_products[0][0] 
+                # then return this product's code 
+            else: 
+                # higher healthyness concern many products so further sorting is needed
+                equally_healthy_products.sort(key = lambda a : a[3], reverse = True)
+                # products here are equally healthy
+                # on same popularity, proximity order is unchanged
+
+                equally_healthyandpopular_products = []
+
+                for index in range(len(equally_healthy_products)):
+                    if equally_healthy_products[0][3] == equally_healthy_products[index][3]:
+                        # check for equally healthy and equally popular products
+                        equally_healthyandpopular_products.append(equally_healthy_products[index])
+
+                print("List of same healthyness and popularity :\n", equally_healthyandpopular_products)
+
+                if len(equally_healthyandpopular_products) == 1:
+                    # if the higher popularity on higher healthyness concerns only one product
+                    return equally_healthy_products[0][0]
+                    # then return this product's code
+                else:
+                    # higher healthyness and higher popularity concern many products
+                    random_index = randrange(0, len(equally_healthyandpopular_products))
+                    return equally_healthyandpopular_products[random_index]
+
+        # if healthyness is equal between products, choose highest popularity
+        # if there is still equalities, choose highest popularity
+        # if there is still equalities, then randomly choose
+
+        # when product is identified, check database to get extended informations about it
+        # if nothing matches return same product and congratulate user for already using best choice.
+
+    @classmethod
+    def record_substitute(cls, user_id, product_code, substitute_code):
         # procedure to store any action done on database when a user is logged in
         pass
 
@@ -463,20 +662,20 @@ def list_categories():
     cursor.execute(query)
     result = cursor.fetchall()
 
+    categories = []
+
     try:
         iter(result)
     except TypeError:
         print("Result is empty and not iterable")
-
-    categories = []
-
-    for category_tuple in result:
-        category = category_tuple[0]
-        if category not in categories:
-            categories.append(category)
-
-    cursor.close()
-    cnx.close()
+    else:
+        for category_tuple in result:
+            category = category_tuple[0]
+            if category not in categories:
+                categories.append(category)
+    finally:
+        cursor.close()
+        cnx.close()
 
     return categories
 
@@ -488,46 +687,36 @@ def list_products(category):
             "WHERE category = %s")
 
     cursor.execute(query, (category,))
-
     result = cursor.fetchall()
+
+    products = []
 
     try:
         iter(result)
     except TypeError:
         print("Result is empty and not iterable")
-
-    products = []
-
-    for (name, code) in result:
-        products.append((name, code))
-
-    cursor.close()
-    cnx.close()
+    else:
+        for (name, code) in result:
+            products.append((name, code))
+    finally:
+        cursor.close()
+        cnx.close()
 
     return products
 
-def substitute(user, login, product_code):
-    return user, login, product_code # for now...
-    # check if a subtitute have already been found for given product
-    # if so, directly return it
-    # else process algorythm for substitute finding:
-
-    # find specified product's category and get every product that have:
-    # - same category
-    # - same or better healthyness
-    # - different code
-
-    # for each product compare subgategories list
-    # use a variable "proximity" to quantify how much lists are similar
-    # each time elements of same index matches, increment "proximity"
-
-    # weight proximity and healthyness to choose between products which one to return
-    # proximity should be quite a high integer while healthyness have only 5 possible values
-    # discard any product that has a proximity lower than half maximum proximity
-    # let's try to select the product with highest healthyness from top 5 proximity products
-
-    # when product is identified, check database to get extended informations about it
-    # if nothing matches return same product and congratulate user for already using best choice.
+def get_substitute(product_code):
+    substitute_code = DatabaseProcedures.substitute(product_code)
+    sub = DatabaseProcedures.product_informations(substitute_code)
+    substitute_informations = {
+        "code": sub[0],
+        "name": sub[1],
+        "nutrition score": sub[2], 
+        "brands": sub[3], 
+        "description": sub[4], 
+        "stores": sub[5],
+        "url": sub[6]
+        }
+    return substitute_informations
 
 def save_search(user, login, product_code, substitute_code):
     # inserts user searches in a special table

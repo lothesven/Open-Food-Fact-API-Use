@@ -15,11 +15,23 @@ CATEGORIES = [
     "Chips", 
     "Pâtes-à-tartiner",
     "Céréales-pour-petit-déjeuner",
+    "Céréales-en-grains",
     "Pains", 
-    "Soupes"
+    "Soupes",
+    "Conserves",
+    "Spaghetti",
+    "Glaces",
+    "Saucissons",
+    "Huiles",
+    "Jambons",
+    "Beurres",
+    "Chocolats",
+    "Sauces"
 ]
 
 GRADES = ['A', 'B', 'C', 'D', 'E']
+
+SIZE = 20
 
 CRITERIAS = (
     'categories_tags,'
@@ -46,15 +58,6 @@ CREDENTIALS = {
 }
 
 TABLES = {
-'History' : (
-    "CREATE TABLE IF NOT EXISTS `History` ("
-    "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
-    "  `user_ID` INT,"
-    "  `date` TEXT NOT NULL,"
-    "  `action` TEXT NOT NULL,"
-    "  `result` TEXT NOT NULL"
-    ") ENGINE=InnoDB"
-    ),
 'Products' : (
     "CREATE TABLE IF NOT EXISTS `Products` ("
     "  `code` BIGINT NOT NULL PRIMARY KEY,"
@@ -76,10 +79,11 @@ TABLES = {
     "  `login` VARCHAR(20) NOT NULL"
     ") ENGINE=InnoDB"
     ),
-'Searches' : (
-    "CREATE TABLE IF NOT EXISTS `Searches` ("
+'Substitutes' : (
+    "CREATE TABLE IF NOT EXISTS `Substitutes` ("
     "  `ID` INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,"
     "  `user_ID` INT UNSIGNED NOT NULL,"
+    "  `date` TEXT NOT NULL,"
     "  `product_code` BIGINT NOT NULL,"
     "  `substitute_code` BIGINT NOT NULL,"
     "  CONSTRAINT `fk_searches_user_ID` FOREIGN KEY (`user_ID`) "         
@@ -90,14 +94,14 @@ TABLES = {
     )
 }
 
-HISTORY_INSERT = ("INSERT INTO History "
-              "(user_ID, date, action, result) "
-              "VALUES (%(user_ID)s, %(date)s, %(action)s, %(result)s)")
-
 PRODUCT_INSERT = ("INSERT INTO Products "
               "(code, name, brands, category, subcategories, description, healthyness, popularity, stores, url) "
               "VALUES (%(code)s, %(name)s, %(brands)s, %(category)s, %(subcategories)s, %(description)s, %(healthyness)s, %(popularity)s, %(stores)s, %(url)s)")
 
 USER_INSERT = ("INSERT INTO Users "
-              "(ID, name, login) "
-              "VALUES (%(ID)s, %(user)s, %(login)s)")
+              "(name, login) "
+              "VALUES (%(user)s, %(login)s)")
+
+SUBSTITUTE_INSERT = ("INSERT INTO Substitutes "
+              "(user_ID, date, product_code, substitute_code) "
+              "VALUES (%(user_ID)s, %(date)s, %(product_code)s, %(substitute_code)s)")
