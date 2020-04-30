@@ -38,6 +38,9 @@ import json
 from datetime import date, datetime, timedelta
 
 import requests
+from random import randrange
+from math import floor
+
 import mysql.connector
 from mysql.connector import errorcode
 
@@ -51,6 +54,7 @@ class Category():
     def __init__(self, name):
         self.name = name
         self.products = self.get_products()
+        self.clean_datas()
         self.subcategories = self.get_subcategories()
 
     def get_products(self):
@@ -68,7 +72,7 @@ class Category():
                 'fields': cf.CRITERIAS,
                 'sort_by': 'unique_scans_n',
                 'json': 'true',
-                'page_size': '5'
+                'page_size': cf.SIZE
             }
             print(payload)
             request = requests.get(cf.URL, params=payload)
@@ -76,18 +80,6 @@ class Category():
                 products.append(product)
 
         return products
-    
-    def get_subcategories(self):
-        '''Browse every product from get_products to find subcategories'''
-        subcategories = list()
-        for product in self.products:
-            temp_list = product.get('categories_tags') # get list of subcategories for each product
-            if type(temp_list) is list:
-                for subcategory in temp_list:
-                    if subcategory not in subcategories: # keep only those not in subcategories yet
-                        subcategories.append(subcategory)
-
-        return subcategories
 
     def clean_datas(self):
         sparse_products = []
@@ -163,233 +155,619 @@ class Category():
             # if any verification raises a problem, copy product in sparse_products list
             if problems > 0:
                 sparse_products.append(product)
-                print("Products with lack of informations : ", len(sparse_products))
+
             # if everything is in order, copy product in valid_products list
             else:
                 valid_products.append(product)
-                print("Valid products : ", len(valid_products))
+
+        print("Products with lack of informations : ", len(sparse_products))
+        print("Valid products : ", len(valid_products))
 
         # keep only valid products in class attribute
-        self.products = valid_products 
+        self.products = valid_products
+
+    def get_subcategories(self):
+        '''Browse every product from get_products to find subcategories'''
+        subcategories = list()
+        for product in self.products: # browse list of products
+            for subcategory in product.get('categories_tags'): # browse list of subcategories
+                if subcategory not in subcategories: # keep any subcategory not in subcategories yet
+                    subcategories.append(subcategory)
+        return subcategories
 
 
 class Product():
 
 # Instances are individual products
+# category is a string refering to primary category defined in config.py
 # Informations must be of type dict and contains each criteria:
-# code,product_name_fr,brands,ingredients_text_fr,nutrition_grade_fr,unique_scans_n,stores,url
+# code,product_name_fr,brands,ingredients_text_fr,categories_tags,nutrition_grade_fr,unique_scans_n,stores,url
 
-    def __init__(self, category, informations):
-        self.category = category
+    def __init__(self, category, subcategories, informations):
+
         self.informations = informations
 
-        self.code = informations.get('code')
-        self.name = informations.get('product_name_fr')
-        self.brand = informations.get('brands')
-        self.description = informations.get('ingredients_text_fr')
-        self.subcategories = informations.get('categories_tags')
-        self.healthyness = informations.get('nutrition_grade_fr')
-        self.popularity = informations.get('unique_scans_n')
-        self.stores = informations.get('stores')
-        self.url = informations.get('url')
+        subcategories_booleans = list()
+        for subcategory in subcategories:
+            if subcategory in informations.get('categories_tags'):
+                subcategories_booleans.append(1)
+            else:
+                subcategories_booleans.append(0)
+
+        self.informations = {
+            'code': informations.get('code'),
+            'name': informations.get('product_name_fr'),
+            'brands':informations.get('brands'),
+            'category': category,
+            'subcategories': str(subcategories_booleans),
+            'description': informations.get('ingredients_text_fr'),
+            'healthyness': informations.get('nutrition_grade_fr'),
+            'popularity': informations.get('unique_scans_n'),
+            'stores': informations.get('stores'),
+            'url': informations.get('url')
+        }
 
     def __str__(self):
-        self.informations = str({
-            "category": self.category,
-            "code": self.code,
-            "name": self.name,
-            "brands": self.brand,
-            "description": self.description,
-            "subcategories": self.subcategories,
-            "healthyness": self.healthyness,
-            "popularity": self.popularity,
-            "stores": self.stores,
-            "url": self.url
-        })
-        return self.informations
+        return str(self.informations)
 
 
-class DatabaseInterraction():
-    # Handles interractions with database
-    # Every function call leaves an history
-    # Whennever connector is closed, write history in database just before
+class DatabaseProcedures():
+    # This class is not supposed to be instanciated
+    # Contains various procedure for database interactions
 
-    def __init__(self, action, user = 0): # user 0 refers to no defined user
-        # action is a string refering to one specific operation
-        self.action = action
-        self.user = user
+    all_tables_created = False
+    all_products_inserted = False
 
-        self.informations = None
-        self.result = None
-        self.connector = None
-        self.cursor = None
+    connection = None
+    cursor = None
 
-        self.history = {}
-
-        self.verify("self.connector = mysql.connector.connect(**cf.CREDENTIALS)")
-        self.verify("self.cursor = self.connector.cursor()")
-        self.verify("""self.cursor.execute("USE {}".format(cf.DB_NAME))""")
-
-        exec("global i; self.action")
-
-        self.leave_history() # Do not forget to create Table History
-
-    def create_table(self, name, informations):
-        # Create a table, provided name and informations
-        self.informations = informations
-
-        self.action = "Attempt to create table {} with following instructions {}".format(name, self.informations)
-
-        print("Creating table {}: ".format(name))
-        self.result = self.verify("self.cursor.execute(self.informations)")
-        # Verify with creation instructions in self.informations
-        print(self.result)
-
-        self.history[self.action] = self.result
-
-    def insert_datas(self, informations, values):
-        # insert datas, provided table and informations
-        self.informations = "{}, {}".format(informations, values)
-        print(self.informations)
-
-        self.action = "Attempt to insert product data with following instructions: {}".format(self.informations)
-
-        self.result = self.verify("self.cursor.execute(self.informations)")
-        # Verify with insertion instructions in self.informations
-        print(self.result)
-
-    def fetch_datas(self, informations):
-        pass
-
-    def create_user(self, informations):
-        # insert data in users table
-        pass
-
-    def verify(self, instructions):
-        # Verifies if instructions are valid
-        # Executes the intructions if so
-        # Returns a string in either way describing result
+    @classmethod
+    def connect(cls):
         try:
-            exec(instructions)
-            return "OK"
+            print("Connecting to {}: ".format(cf.DB_NAME), end='')
+            cls.connection = mysql.connector.connect(**cf.CREDENTIALS) # connexion handling instance
+            cls.cursor = cls.connection.cursor()
         except mysql.connector.Error as err:
-                if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-                    return "Something is wrong with user name or password. Please check 'config.py'."
-                elif err.errno == errorcode.ER_BAD_DB_ERROR:
-                    return "Database {} does not exists. Please follow instructions in 'Readme.md'".format(cf.DB_NAME)
-                elif err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-                    return "Table already exists."
-                else:
-                    return err.msg
-        else:
-            return "Unknown error"
-    
-    def leave_history(self):
-
-        # print("Commiting ...")
-        print(self.verify("self.connector.commit()"))
-
-        # leave history by using self.insert_data(), self.history and self.user
-        history_values = {
-            "user_ID": self.user, 
-            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
-            "action": self.action, 
-            "result": self.result
-            }
-        self.insert_datas(cf.HISTORY_INSERT, history_values)
-        print(self.verify("self.connector.commit()"))
-
-        self.cursor.close()
-        self.connector.close()
-
-        if history_values["result"] == "OK":
-            self.result = True
-
-
-class Database():
-
-    tables_created = False
-    categories_inserted = False
-    product_inserted = False
-
-    @classmethod
-    def create_tables(cls):
-        if cls.tables_created == False:
-            results = []
-            for i in cf.TABLES:
-                print(i)
-                action = """self.create_table("{}, {}".format(i, cf.TABLES.get(i)))"""
-                ref = DatabaseInterraction(action)
-                results.append(ref.result)
-        
-        for element in results:
-            if element == "OK":
-                cls.tables_created = True
+            if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+                print("Something is wrong with your user name or password")
+            elif err.errno == errorcode.ER_BAD_DB_ERROR:
+                print("Database does not exist")
             else:
-                cls.tables_created = False
-                break
+                print(err)
+        else:
+            print("OK")
+        
+        return cls.connection, cls.cursor
     
     @classmethod
-    def drop_tables(cls):
-        for i in cf.TABLES:
-            action = "self.cursor.execute('DROP TABLE {}')".format(i)
-            ref = DatabaseInterraction(action)
-            print(ref.result)
+    def disconnect(cls):
+        try:
+            cls.cursor.close()
+            cls.connection.close()
+        except:
+            print("An error occured for cursor and/or connexion closing.")
+    
+    @classmethod
+    def create_tables(cls, table_list = cf.TABLES.keys()):
+        # if specified, table_list argument must be a list of strings
+        # might be usefull if program gets bigger for content update
+        if cls.all_tables_created == False:
+            tables_created = 0
+            
+            cls.connect()
+        
+            for table_name in table_list:
+                try:
+                    table_description = cf.TABLES[table_name]
+                except: # handle possible error when table_list contains strings not in cf.TABLES keys
+                    continue
+
+                try:
+                    print("Creating table {}: ".format(table_name), end='')
+                    cls.cursor.execute(table_description)
+                    tables_created += 1
+                except mysql.connector.Error as err:
+                    if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
+                        print("already exists.")
+                        tables_created += 1 # created beforehand but created nonetheless
+                    else:
+                        print(err.msg)
+                else:
+                    print("OK")
+        
+            cls.disconnect()
+        
+        if tables_created == len(cf.TABLES):
+            cls.all_tables_created = True
+        
+        return tables_created
 
     @classmethod
-    def insert_product(cls, product):
-        # product must be an instance of class Product
-        action = """self.insert_datas("{}, {}".format(cf.PRODUCT_INSERT, product.informations))"""
-        # carefull, this works only because product is printed in get_off_datas for now
-        ref = DatabaseInterraction(action)
+    def drop_tables(cls, table_list = cf.TABLES.keys()): # maybe for specific table ?
+        # if specified, table_list argument must be a list of strings
+        tables_deleted = 0
+    
+        cls.connect()
 
-        print("Product insertion :", ref.result)
+        for table_name in reversed(table_list):
+            try:
+                print("Droping table {}: ".format(table_name), end='')
+                cls.cursor.execute("DROP TABLE {}".format(table_name))
+                tables_deleted += 1
+            except mysql.connector.Error as err:
+                if err.errno == errorcode.ER_BAD_TABLE_ERROR:
+                    print("Table doesn't exist")
+                    if table_name in cf.TABLES.keys():
+                        tables_deleted += 1 # deleted beforehand but deleted nonetheless
+                else:
+                    raise
+            else:
+                print("OK")
+        
+        cls.disconnect()
+    
+        if tables_deleted: # if even only one table have been droped
+            cls.all_tables_created = False
+        
+        return tables_deleted
 
     @classmethod
-    def get_off_datas(cls):
-        for i in cf.CATEGORIES:
-            print(i)
-            i = Category(i)
-            i.clean_datas()
-            for j in i.products:
-                j = Product(i.name, j)
-                # print(j)
-                Database.insert_product(j)
-            # print(i.subcategories)
-            # print(len(i.subcategories))
+    def insert_products_from_category(cls, category):
+        # category refer to an instance of class Category
+
+        cls.connect()
+
+        for j in category.products:
+            j = Product(category.name, category.subcategories, j)
+            try:
+                print("Inserting product {}: ".format(j.informations['subcategories']), end='')
+                cls.cursor.execute(cf.PRODUCT_INSERT, j.informations)
+            except mysql.connector.Error as err:
+                print(err)
+            else:
+                print("Insertion ok")
+        
+        cls.connection.commit()
+
+        cls.disconnect()
+
+    @classmethod # Still to be tested
+    def check_user(cls, user, login):
+        # Verifies if specified user and login are in database
+        cls.connect()
+
+        query = "SELECT login, ID FROM Users WHERE name = '{}'".format(user)
+        print(query)
+
+        try:
+            print("Checking login for user {}: ".format(user), end='')
+            cls.cursor.execute(query)
+        except mysql.connector.Error as err:
+            print(err)
+        else:
+            try:
+                iter(cls.cursor)
+                result = cls.cursor.fetchone()
+                print("result is : ", result)
+                registered_login = result[0]
+                user_ID = result[1]
+                print("found login is : ", registered_login)
+            except TypeError:
+                print("Cursor definition encountered an unknown issue causing it not to be iterable")
+            except IndexError:
+                # cursor is empty
+                print("User not found")
+            else:
+                if registered_login == login: # cursor content equals login
+                    print("User name and login are correct")
+                    return user_ID
+                elif registered_login != login: # cursor content doesn't match
+                    print("Incorrect login")
+        finally:
+            cls.disconnect()
+
+    @classmethod
+    def create_user(cls, user, login):
+
+        cls.connect()
+
+        try:
+            print("Creating user {}: ".format(user), end='')
+            cls.cursor.execute(cf.USER_INSERT, {"user": user, "login": login})
+        except mysql.connector.Error as err:
+            print("error number = ", err.errno, " of type : ", type(err.errno), " and ", "sqlstate = ", err.sqlstate, " of type : ", type(err.sqlstate))
+            if err.errno == 1062 and err.sqlstate == "23000":
+                print("User already registered")
+            print(err)
+            return False
+        else:
+            cls.connection.commit()
+            print("Creation ok")
+            return True
+        
+        finally:
+            cls.disconnect()
+
+    @classmethod
+    def product_informations(cls, product_code, informations = "code, name, healthyness, brands, description, stores, url"):
+
+        cls.connect()
+
+        query = "SELECT {} FROM Products WHERE code = '{}'".format(informations, product_code)
+
+        try:
+            print("Retrieving informations from product '{}': ".format(product_code), end='')
+            cls.cursor.execute(query)
+        except mysql.connector.Error as err:
+            print(err)
+        else:
+            try:
+                iter(cls.cursor)
+            except TypeError:
+                print("Cursor definition encountered an unknown issue causing it not to be iterable")
+            else:
+                product_informations = cls.cursor.fetchall()
+                print("\n", product_informations)
+                if len(product_informations) > 1:
+                    return product_informations
+                elif len(product_informations) == 1:
+                    return product_informations[0]
+                else:
+                    print("Informations not found")
+        finally:
+            cls.disconnect()
+
+    @classmethod
+    def substitute(cls, product_code):
+
+        cls.connect()
+
+        query = "SELECT substitute_code FROM Substitutes WHERE product_code = {}".format(product_code)
+        print(query)
+
+        cls.cursor.execute(query)
+        result = cls.cursor.fetchone()
+
+        try:
+            cls.cursor.fetchall() # to empy cursor if many entries have been found
+        except mysql.connector.errors.InterfaceError:
+            print("Cursor already emptied. Move on.")
+
+        cls.disconnect()
+
+        # check if a subtitute have already been found for given product
+        # if so, directly return it
+
+        try:
+            result[0]
+        except TypeError:
+            print("No substitute already found for this product.")
+        else:
+            print("result[0] = ", result[0])
+            if result[0]:
+                return result[0]
+                # for now only return one
+
+            
+        # else process algorythm for substitute finding:
+        category, healthyness, subcategories = DatabaseProcedures.product_informations(product_code, "category, healthyness, subcategories")
+        
+        subcategories = subcategories[1:-1].split(', ')
+        # remove "[" and "]" in the string, then remove ', ' to keep only 0 and 1 as a list of strings
+        print("category is: ", category)
+        print("healthyness is: ", healthyness)
+        print("subcategories are: ", subcategories)
+        # find specified product's category and get every product that have:
+        # - same category
+        # - same or better healthyness
+        # - different code
+
+        cls.connect()
+
+        query = ("SELECT code, subcategories, healthyness, popularity FROM Products WHERE category = '{}' AND healthyness <= '{}' AND code != '{}'".format(category, healthyness, product_code))
+
+        cls.cursor.execute(query)
+        result = cls.cursor.fetchall() # each product found should be a 4 elements tuple
+
+        cls.disconnect()
+
+        similar_products = []
+        max_proximity = 0
+        min_proximity = 999
+
+        for product in result:
+
+            proximity = 0
+
+            subcategory_list = product[1][1:-1].split(', ') 
+            # remove "[" and "]" in the string, then remove ', ' to keep only 0 and 1 as a list of strings
+
+            for index in range(len(subcategory_list)):
+                if subcategory_list[index] == subcategories[index]:
+                    proximity += 1
+
+            print("proximity after reading is : ", proximity)
+            
+            if proximity > max_proximity:
+                max_proximity = proximity
+                print("new max is : ", max_proximity)
+            
+            if proximity < min_proximity:
+                min_proximity = proximity
+                print("new min is : ", min_proximity)
+
+            similar_products.append([product[0], proximity, product[2], product[3]])
+
+        print("List with proximities : ", similar_products)
+        # for each product compare subgategories list
+        # use a variable "proximity" to quantify how much lists are similar
+        # each time elements of same index matches, increment "proximity"
+
+        indexes = []
+        delta_proximity = max_proximity - min_proximity
+        closeness = 0.95
+        # arbitrary number between 0 and 1
+        # higher leads to closer to max_proximity as minimum target for proximity
+        proximity_target = floor(min_proximity + delta_proximity * closeness)
+
+        print("proximity max is : ", max_proximity)
+        print("proximity min is : ", min_proximity)
+        print("delta is : ", delta_proximity)
+        print("proximity target is : ", proximity_target)
+
+        for index in range(len(similar_products)):
+            if similar_products[index][1] < proximity_target:
+                # if proximity target is set to max, < keep it whereas <= doesn't
+                indexes.append(index)
+
+        print("indexes where proximity is below target : ", indexes)
+
+        for index_element in reversed(indexes): 
+            # reversed to have indexes in descending order and avoid IndexError
+            print(similar_products.pop(index_element)) 
+            # removes every product with proximity lower than defined proximity
+
+        similar_products.sort(key = lambda a : a[1], reverse = True)
+        print("sorted and cleaned list : \n", similar_products)
+        # this command sort similar_products list based on proximity in descending order
+
+        if healthyness == "A" or healthyness == "a": 
+            print("already healthy")
+            # sorting using healthyness is irrelevant here so we use popularity
+            similar_products.sort(key = lambda a : a[3], reverse = True) 
+            # On same popularity, proximity order is unchanged
+            return similar_products[0][0] 
+            # higher popularity on minimum of proximity weight
+        else: 
+            # For any other healthyness than "A" sorting healthyness is needed
+            similar_products.sort(key = lambda a : a[2]) 
+            # On same healthyness, proximity order is unchanged
+            
+            equally_healthy_products = []
+
+            for index in range(len(similar_products)):
+                if similar_products[0][2] == similar_products[index][2]:
+                    # check for equally healthy products in similar_products
+                    equally_healthy_products.append(similar_products[index])
+                    # this keeps only highest healthyness products with proximity order unchanged between them
+            
+            print("List of same healthyness :\n", equally_healthy_products)
+
+            if len(equally_healthy_products) == 1: 
+                # if the higher healthyness concerns only one similar_product
+                return similar_products[0][0] 
+                # then return this product's code 
+            else: 
+                # higher healthyness concern many products so further sorting is needed
+                equally_healthy_products.sort(key = lambda a : a[3], reverse = True)
+                # products here are equally healthy
+                # on same popularity, proximity order is unchanged
+
+                equally_healthyandpopular_products = []
+
+                for index in range(len(equally_healthy_products)):
+                    if equally_healthy_products[0][3] == equally_healthy_products[index][3]:
+                        # check for equally healthy and equally popular products
+                        equally_healthyandpopular_products.append(equally_healthy_products[index])
+
+                print("List of same healthyness and popularity :\n", equally_healthyandpopular_products)
+
+                if len(equally_healthyandpopular_products) == 1:
+                    # if the higher popularity on higher healthyness concerns only one product
+                    return equally_healthy_products[0][0]
+                    # then return this product's code
+                else:
+                    # higher healthyness and higher popularity concern many products
+                    random_index = randrange(0, len(equally_healthyandpopular_products))
+                    return equally_healthyandpopular_products[random_index]
+
+        # if healthyness is equal between products, choose highest popularity
+        # if there is still equalities, choose highest popularity
+        # if there is still equalities, then randomly choose
+
+        # when product is identified, check database to get extended informations about it
+        # if nothing matches return same product and congratulate user for already using best choice.
+
+    @classmethod
+    def record_substitute(cls, user_id, product_code, substitute_code):
+        # procedure to store any action done on database when a user is logged in
+        
+        cls.connect()
+
+        date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+        try:
+            print("Registering substitute {}: ".format(substitute_code), end='')
+            values = {"user_ID": user_id, "date": date, "product_code": product_code, "substitute_code": substitute_code}
+            cls.cursor.execute(cf.SUBSTITUTE_INSERT, values)
+        except mysql.connector.Error as err:
+            print(err)
+            return False
+        else:
+            cls.connection.commit()
+            print("Substitute saved")
+            return True
+        
+        finally:
+            cls.disconnect()
+
+
 
 ####################################################################################################
 
+# Below are function callable by controler
+
+def is_installed():
+    # check if database have already been installed
+    # should be so if every table in config already exist
+
+    cnx, cursor = DatabaseProcedures.connect()
+
+    query = "SHOW TABLES"
+
+    cursor.execute(query)
+
+    result = cursor.fetchall()
+
+    cursor.close()
+    cnx.close()
+
+    if len(result) == len(cf.TABLES.keys()):
+        return True
+    else:
+        return False
+
 def install():
-    # create every table begining by history, fill table products
-    Database.create_tables()
-    Database.get_off_datas()
+    # create every table begining by history and fill table products
+    DatabaseProcedures.create_tables()
+    print("Tables created : ", DatabaseProcedures.all_tables_created)
+    get_off_datas()
 
 def uninstall():
-    Database.drop_tables()
+    result = DatabaseProcedures.drop_tables()
+    return result
+
+def get_off_datas():
+    for i in cf.CATEGORIES:
+        print(i)
+        i = Category(i)
+        print("Number of different subcategories :", len(i.subcategories))
+        DatabaseProcedures.insert_products_from_category(i)
+
+def manage_user(name, login, action):
+    # verify inputs for any devious attempts
+    str_name = str(name)
+    str_login = str(login)
+
+    if "".join(str_name.split()) == name and "".join(str_login.split()) == login:
+        # removes all whitespace characters (space, tab, newline, and so on) 
+        # compare to user input to detect devious SQL injection
+        # check if user already exist
+        if DatabaseProcedures.check_user(name, login):
+            if action == "log": # if action is log, everything is fine
+                print("Login successfull")
+                return True
+            else: # user and login exists but action is create
+                print("Error: user and login already exists")
+        else: # user and/or login are not found
+            if action == "create": # if action is create, then try to create user
+                if DatabaseProcedures.create_user(name, login):
+                    print("User registered")
+                    return True
+                else:
+                    print("User not registered")
+            else: # action is log but user/login haven't been found
+                print("Could not find user and login specified")
+    else:
+        print("Whitespace caracters are not allowed")
+    # if user try to log, action is log, else action is create
+    
+    # if action is log and user exist, return "login successfull"
+    # elif action is create and user doesn't exist, create it and return "user registered"
+    # else return an error message
 
 def list_categories():
-    # if DatabaseSetting.tables_created:
-    # function to browse DB using class DatabaseInterraction and get main categories
-    # must return a list
-    pass
+
+    cnx, cursor = DatabaseProcedures.connect()
+
+    query = "SELECT category FROM Products"
+
+    cursor.execute(query)
+    result = cursor.fetchall()
+
+    categories = []
+
+    try:
+        iter(result)
+    except TypeError:
+        print("Result is empty and not iterable")
+    else:
+        for category_tuple in result:
+            category = category_tuple[0]
+            if category not in categories:
+                categories.append(category)
+    finally:
+        cursor.close()
+        cnx.close()
+
+    return categories
 
 def list_products(category):
-    # function to browse DB using class DatabaseInterraction and get products in a given category
-    # must return a list
-    pass
 
-def substitute(user, login, product_code):
-    # check if user exists in database. If not, create it.
-    # check if a subtitute have already been found for given product
-    # if so, jump next step
-    # algorythm for substitute finding
-    # must return a dict
-    pass
+    cnx, cursor = DatabaseProcedures.connect()
+
+    query = ("SELECT name, code FROM Products "
+            "WHERE category = %s")
+
+    cursor.execute(query, (category,))
+    result = cursor.fetchall()
+
+    products = []
+
+    try:
+        iter(result)
+    except TypeError:
+        print("Result is empty and not iterable")
+    else:
+        for (name, code) in result:
+            products.append((name, code))
+    finally:
+        cursor.close()
+        cnx.close()
+
+    return products
+
+def get_substitute(product_code):
+    substitute_code = DatabaseProcedures.substitute(product_code)
+    sub = DatabaseProcedures.product_informations(substitute_code)
+    substitute_informations = {
+        "code": sub[0],
+        "name": sub[1],
+        "nutrition score": sub[2], 
+        "brands": sub[3], 
+        "description": sub[4], 
+        "stores": sub[5],
+        "url": sub[6]
+        }
+    return substitute_informations
+
+def get_informations(product_code):
+    prod = DatabaseProcedures.product_informations(product_code)
+    product_informations = {
+        "code": prod[0],
+        "name": prod[1],
+        "nutrition score": prod[2], 
+        "brands": prod[3], 
+        "description": prod[4], 
+        "stores": prod[5],
+        "url": prod[6]
+        }
+    return product_informations
 
 def save_search(user, login, product_code, substitute_code):
     # inserts user searches in a special table
     # this must be a user choice
-    pass
-
-install()
+    user_ID = manage_user(user, login, "log")
+    if user_ID:
+        if DatabaseProcedures.record_substitute(user_ID, product_code, substitute_code):
+            return True

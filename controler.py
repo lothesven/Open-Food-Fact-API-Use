@@ -1,12 +1,14 @@
 # Get initial display using View
 # Launch requests to OFF in Model
-import modelbis as md
+import model
 import view
 
 class ProgramOutput():
 
     categories = list()
     products = list()
+
+    product = dict()
     substitute = dict()
 
     @classmethod
@@ -28,9 +30,19 @@ class ProgramOutput():
         # substitute is a dictionary
         return view.substitute_display(cls.substitute)
 
+    @classmethod
+    def save_display(cls):
+        # substitute is a dictionary
+        return view.save_display(cls.product, cls.substitute)
+
+    @classmethod
+    def next_display(cls):
+        # substitute is a dictionary
+        return view.next_display()
+
 class UserRequestHandler():
 
-    installed = md.is_installed()
+    installed = model.is_installed()
     uninstalled = not installed
 
     @classmethod
@@ -38,7 +50,7 @@ class UserRequestHandler():
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if not cls.installed:
             try:
-                md.install()
+                model.install()
             except:
                 print("Error while installing")
             else:
@@ -55,7 +67,7 @@ class UserRequestHandler():
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if not cls.uninstalled:
             try:
-                md.uninstall()
+                model.uninstall()
             except:
                 print("Error while uninstalling")
             else:
@@ -72,7 +84,7 @@ class UserRequestHandler():
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if cls.installed:
             if user and login:
-                if md.manage_user(user, login, "log"):
+                if model.manage_user(user, login, "log"):
                     return True
                 else:
                     return False
@@ -88,7 +100,7 @@ class UserRequestHandler():
         print("installed : ", cls.installed, " uninstalled : ", cls.uninstalled)
         if cls.installed:
             if user and login:
-                if md.manage_user(user, login, "create"):
+                if model.manage_user(user, login, "create"):
                     return True
                 else:
                     return False
@@ -104,14 +116,14 @@ class UserRequestHandler():
         # Get categories using Model
         # Get proper categories display using View
         if cls.installed:
-            ProgramOutput.categories = md.list_categories()
+            ProgramOutput.categories = model.list_categories()
 
     @classmethod
     def call_products(cls, category):
         # Get products provided a category using Model
         # Get proper products display using View
         if cls.installed:
-            ProgramOutput.products = md.list_products(category)
+            ProgramOutput.products = model.list_products(category)
 
     @classmethod
     def call_substitute(cls, product_code):
@@ -119,11 +131,14 @@ class UserRequestHandler():
         # Get proper substitute display using View
         if cls.installed:
             print("Getting substitute for {} ...".format(product_code))
-            ProgramOutput.substitute = md.get_substitute(product_code)
-            
-
-# Register product and substitute using Model
-# Get proper registration display using View
-
-# Get history using Model
-# Get proper history display using View
+            ProgramOutput.substitute = model.get_substitute(product_code)
+    
+    @classmethod
+    def save_substitute(cls, user, login, product_code, substitute_code):
+        # Register product and substitute using Model
+        # Get proper registration display using View
+        if cls.installed:
+            if model.save_search(user, login, product_code, substitute_code):
+                ProgramOutput.product = model.get_informations(product_code)
+            else:
+                print("Couldn't save substitute")

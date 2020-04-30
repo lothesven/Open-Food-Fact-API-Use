@@ -29,7 +29,16 @@ def substitute_display(substitute):
         print("Substitute {} : ".format(information), substitute[information])
     return "\nwould you like to save this substitute ? [y/n] : "
 
+# Class SaveDisplay
+def save_display(product, substitute):
+    print("\nYour initial product : \n")
+    for information in product.keys():
+        print("Product {} : ".format(information), product[information])
+    
+    print("\nYour properly saved substitute : \n")
+    for information in substitute.keys():
+        print("Product {} : ".format(information), substitute[information])
 
-# Class RegistrationDisplay
-
-# Class HistoryDisplay
+# Class NextDisplay
+def next_display():
+    return "\nTry another research ? [y/n] : "
