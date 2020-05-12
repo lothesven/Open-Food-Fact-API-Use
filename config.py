@@ -1,10 +1,13 @@
-# Constants used by the applications.
-# 
-# List of categories to get from Ope Food Facts
-# List of key/value used for requests on OFF
-# 
-
 # -*- coding: utf-8 -*
+
+""" 
+This module contains only constants used by the application.
+It is only accessed by module "Model" and contains:
+
+- a list of categories to get from Open Food Facts (OFF)
+- many important parameters used for requests on OFF
+- informations for database handling
+"""
 
 CATEGORIES = [
     "Boissons-gazeuses", 
@@ -46,6 +49,10 @@ CRITERIAS = (
     )
 
 URL = "https://fr.openfoodfacts.org/cgi/search.pl?"
+
+
+##########################################################
+
 
 DB_NAME = 'ratatouille'
 

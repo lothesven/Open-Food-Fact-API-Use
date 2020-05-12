@@ -1,7 +1,13 @@
-# Calls controller for initial display
-# Waits for user choice
+# -*- coding: utf-8 -*
 
-# For each user choice, calls the controler accordingly
+"""
+Main module of the application
+
+- Calls controler for initial display
+- Waits for user choices
+- For each user choice, calls the controler accordingly
+- Displays program responses fetched by controler
+"""
 
 import controler as ct
 
@@ -18,12 +24,16 @@ def main():
     chosen_product = False
 
     while running:
+        # Main user choice waiting loop
 
         while not logged_in:
+            # Secondary user choice waiting loop
+            # Main menu display
 
             try:
                 choice = int(input(ct.ProgramOutput.initial_display()))
             except ValueError:
+                print("Invalid input. Must be a positive integer")
                 choice = 0
 
             if choice == 1:
@@ -70,14 +80,18 @@ def main():
                 break
 
             else:
-                print("Invalid input. Please follow instructions...")
+                print("Please type an integer related to available choices.")
                 choice = 0
 
         while logged_in:
+            # Secondary user choice waiting loop
+            # Contains the process for choosing which product to substitute
             
             ct.UserRequestHandler.call_categories()
 
             while not chosen_category:
+                # Tertiary user choice waiting loop
+                # Ensures a valid category have been selected by user
 
                 valid_choices = len(ct.ProgramOutput.categories)
                 print("list of categories : ")
@@ -85,13 +99,20 @@ def main():
                 try:
                     choice = int(input(ct.ProgramOutput.categories_display()))
                 except ValueError:
+                    print("Invalid input. Must be a positive integer")
                     choice = 0
                 
                 if 0 < choice <= valid_choices:
                     ct.UserRequestHandler.call_products(ct.ProgramOutput.categories[choice - 1])
                     chosen_category = True
 
+                else:
+                    print("Please type an integer related to available choices.")
+                    choice = 0
+
             while not chosen_product:
+                # Tertiary user choice waiting loop
+                # Ensures a valid product have been selected by user
 
                 valid_choices = len(ct.ProgramOutput.products)
                 print("list of products : ")
@@ -99,17 +120,25 @@ def main():
                 try:
                     choice = int(input(ct.ProgramOutput.products_display()))
                 except ValueError:
+                    print("Invalid input. Must be a positive integer")
                     choice = 0
                 
                 if 0 < choice <= valid_choices:
-                    chosen_product = ct.ProgramOutput.products[choice - 1][1]
+                    chosen_product = ct.ProgramOutput.products[choice - 1][2]
                     print(chosen_product)
                     ct.UserRequestHandler.call_substitute(chosen_product)
+
+                else:
+                    print("Please type an integer related to available choices.")
+                    choice = 0
                     
             
             choice = input(ct.ProgramOutput.substitute_display())
+            # diplays found substitute and asks if user wants to save it
 
             while choice != "y" and choice != "n":
+                # Loop to handle incorrect user input
+
                 print("\nYou must choose between 'Yes' by pressing 'y' or 'No' by pressing 'n'.\n")
                 choice = input(ct.ProgramOutput.substitute_display())
 
@@ -119,17 +148,19 @@ def main():
                 ct.ProgramOutput.save_display()
 
             choice = input(ct.ProgramOutput.next_display())
+            # propose to try another search
 
             while choice != "y" and choice != "n":
+                # Loop to handle incorrect user input
+
                 print("\nYou must choose between 'Yes' by pressing 'y' or 'No' by pressing 'n'.\n")
                 choice = input(ct.ProgramOutput.next_display())
 
             if choice != "y":
-                logged_in = False
+                logged_in = False # Enables to get back to the begining of main loop
             
-            chosen_category = False
-            chosen_product = False
+            chosen_category = False # Get boolean to initial setting for new substitute research
+            chosen_product = False # Get boolean to initial setting for new substitute research
 
-        
     
 main()
