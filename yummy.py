@@ -9,7 +9,7 @@ Main module of the application
 - Displays program responses fetched by controler
 """
 
-import controler as ct
+import modules.controler as ct
 
 def main():
 
