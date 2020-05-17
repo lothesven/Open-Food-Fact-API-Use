@@ -9,8 +9,8 @@ The module consists of two classes:
 - UserRequestHandler interacts with Model
 """
 
-import model
-import view
+import modules.model as model
+import modules.view as view
 
 class ProgramOutput():
     """
@@ -25,9 +25,18 @@ class ProgramOutput():
     product = dict()
     substitute = dict()
 
+    past_substitutes = dict()
+    # this dict object contains tuples as values
+    # each tuple consist of two dict object
+    # first contains initial product info, second contains related substitute info
+
     @classmethod
     def initial_display(cls):
         return view.initial_display()
+
+    @classmethod
+    def logged_display(cls):
+        return view.logged_display()
 
     @classmethod
     def categories_display(cls):
@@ -50,8 +59,8 @@ class ProgramOutput():
         return view.save_display(cls.product, cls.substitute)
 
     @classmethod
-    def next_display(cls):
-        return view.next_display()
+    def favorites_display(cls):
+        return view.favorites_display(cls.past_substitutes)
 
 class UserRequestHandler():
     """
@@ -68,13 +77,13 @@ class UserRequestHandler():
             try:
                 model.install()
             except:
-                print("Error while installing")
+                print("Code error in model.py on function install()")
             else:
                 cls.installed = True
                 return True
         
         else:
-            print("Already installed")
+            print("L'installation a déjà eu lieu")
             return False
 
     @classmethod
@@ -83,13 +92,13 @@ class UserRequestHandler():
             try:
                 model.uninstall()
             except:
-                print("Error while uninstalling")
+                print("Code error in model.py on function uninstall()")
             else:
                 cls.installed = False
                 return True
         
         else:
-            print("Already uninstalled")
+            print("La désinstallation a déjà été effectuée")
             return False
 
     @classmethod
@@ -101,10 +110,10 @@ class UserRequestHandler():
                 else:
                     return False
             else:
-                print("Empty user and/or login. Please retry and input something")
+                print("Nom d'utilisation et/ou de mot de passe vide. Veuillez renseigner ces champs.")
                 return False
         else:
-            print("You need to install, then register before trying to log in")
+            print("Vous devez procéder à l'installation puis créer un utilisateur avant de vous connecter")
             return False
 
     @classmethod
@@ -116,10 +125,10 @@ class UserRequestHandler():
                 else:
                     return False
             else:
-                print("Empty user and/or login. Please retry and input something")
+                print("Nom d'utilisation et/ou de mot de passe vide. Veuillez renseigner ces champs.")
                 return False
         else:
-            print("You need to install first before trying to register")
+            print("Vous devez procéder à l'installation avant de créer un utilisateur")
             return False
 
     @classmethod
@@ -135,7 +144,7 @@ class UserRequestHandler():
     @classmethod
     def call_substitute(cls, product_code):
         if cls.installed:
-            print("Getting substitute for {} ...".format(product_code))
+            print("Recherche d'un substitut pour le produit de code barre {} ...".format(product_code))
             ProgramOutput.substitute = model.get_substitute(product_code)
     
     @classmethod
@@ -144,4 +153,14 @@ class UserRequestHandler():
             if model.save_search(user, login, product_code, substitute_code):
                 ProgramOutput.product = model.get_informations(product_code)
             else:
-                print("Couldn't save substitute")
+                print("Echec de la sauvegarde.")
+    
+    @classmethod
+    def past_substitutes(cls, user, login):
+        if cls.installed:
+            ProgramOutput.past_substitutes = model.list_substitutes(user, login)
+
+    @classmethod
+    def load_substitution(cls, product, substitute):
+        ProgramOutput.product = product
+        ProgramOutput.substitute = substitute

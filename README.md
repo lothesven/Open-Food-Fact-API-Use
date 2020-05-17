@@ -67,3 +67,9 @@ Please find all informations following the links below:
 > GRANT ALL PRIVILEGES ON Ratatouille.* TO 'Pur'@'localhost' WITH GRANT OPTION;
 6. Launch "yummy.py" and follow instructions displayed
 > python yummy.py
+
+## *Assistance*
+
+If above instructions doesn't get you out of troubles, please contact us:
+
+contact@purbeurre.fr

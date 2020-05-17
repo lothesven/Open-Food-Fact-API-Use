@@ -33,42 +33,49 @@ def main():
             try:
                 choice = int(input(ct.ProgramOutput.initial_display()))
             except ValueError:
-                print("Invalid input. Must be a positive integer")
+                print("Choix invalide. Vous devez entrer un nombre entier positif, sans espaces.")
                 choice = 0
 
             if choice == 1:
                 if ct.UserRequestHandler.install():
-                    print("Installation completed")
+                    print("\nInstallation complète")
                 else:
-                    print("Installation error")
+                    print("\nErreur durant l'installation")
                 choice = 0
 
             elif choice == 2:
                 if ct.UserRequestHandler.uninstall():
-                    print("Uninstall process completed")
+                    print("\nDésinstallation terminée")
                 else:
-                    print("Could not uninstall")
+                    print("\nLa désinstallation n'a pu avoir lieu")
                 choice = 0
 
             elif choice == 3:
-                user = input("Enter user name : ")
-                login = input("Enter log in password : ")
+                user = input("Entrez un nom d'utilisateur : ")
+                login = input("Entrez un mot de passe : ")
 
-                print("Try to log in with user : '{}' and password : '{}'.".format(user, login))
-                try:
-                    logged_in = ct.UserRequestHandler.log_in(user, login)
-                except:
-                    print("Encountered an error while trying to log in.")
+                print("Tentative de connexion...")
+
+                logged_in = ct.UserRequestHandler.log_in(user, login)
+
+                if logged_in:
+                    print("Connexion réussie. \n\nBienvenue {} !".format(user))
+                    
+                else:
+                    print("Une erreur est survenue. La connexion a échoué.")
                     user = str()
                     login = str()
 
             elif choice == 4:
-                user = input("Enter user name : ")
-                login = input("Enter log in password : ")
+                user = input("Entrez un nom d'utilisateur : ")
+                login = input("Entrez un mot de passe : ")
 
-                print("Try to create new user : '{}' with password : '{}'.".format(user, login))
+                print("Création de l'utilisateur ...")
+
                 if ct.UserRequestHandler.register(user, login):
-                    print("Registration went well")
+                    print("Création réussie. \nVous pouvez à présent vous connecter.")
+                else:
+                    print("Une erreur est survenue. L'utilisateur {} n'a pas pu être (re)créé".format(user))
 
                 user = str()
                 login = str()
@@ -76,91 +83,121 @@ def main():
 
             elif choice == 5:
                 running = False
-                print("Good bye :) ")
+                print("A bientôt pour allier le bon et le sain.")
                 break
 
             else:
-                print("Please type an integer related to available choices.")
+                print("Veuillez entrer un nombre entier parmi les choix disponibles.")
                 choice = 0
 
         while logged_in:
             # Secondary user choice waiting loop
             # Contains the process for choosing which product to substitute
+
+            try:
+                choice = int(input(ct.ProgramOutput.logged_display()))
+            except ValueError:
+                print("Choix invalide. Vous devez entrer un nombre entier positif, sans espaces.")
+                choice = 0
             
-            ct.UserRequestHandler.call_categories()
+            if choice == 1:
+            
+                ct.UserRequestHandler.call_categories()
 
-            while not chosen_category:
-                # Tertiary user choice waiting loop
-                # Ensures a valid category have been selected by user
+                while not chosen_category:
+                    # Tertiary user choice waiting loop
+                    # Ensures a valid category have been selected by user
 
-                valid_choices = len(ct.ProgramOutput.categories)
-                print("list of categories : ")
+                    valid_choices = len(ct.ProgramOutput.categories)
 
-                try:
-                    choice = int(input(ct.ProgramOutput.categories_display()))
-                except ValueError:
-                    print("Invalid input. Must be a positive integer")
-                    choice = 0
-                
-                if 0 < choice <= valid_choices:
-                    ct.UserRequestHandler.call_products(ct.ProgramOutput.categories[choice - 1])
-                    chosen_category = True
-
-                else:
-                    print("Please type an integer related to available choices.")
-                    choice = 0
-
-            while not chosen_product:
-                # Tertiary user choice waiting loop
-                # Ensures a valid product have been selected by user
-
-                valid_choices = len(ct.ProgramOutput.products)
-                print("list of products : ")
-
-                try:
-                    choice = int(input(ct.ProgramOutput.products_display()))
-                except ValueError:
-                    print("Invalid input. Must be a positive integer")
-                    choice = 0
-                
-                if 0 < choice <= valid_choices:
-                    chosen_product = ct.ProgramOutput.products[choice - 1][2]
-                    print(chosen_product)
-                    ct.UserRequestHandler.call_substitute(chosen_product)
-
-                else:
-                    print("Please type an integer related to available choices.")
-                    choice = 0
+                    try:
+                        choice = int(input(ct.ProgramOutput.categories_display()))
+                    except ValueError:
+                        print("Choix invalide. Vous devez entrer un nombre entier positif, sans espaces.")
+                        choice = 0
                     
-            
-            choice = input(ct.ProgramOutput.substitute_display())
-            # diplays found substitute and asks if user wants to save it
+                    if 0 < choice <= valid_choices:
+                        ct.UserRequestHandler.call_products(ct.ProgramOutput.categories[choice - 1])
+                        chosen_category = ct.ProgramOutput.categories[choice - 1]
+                        print("Vous avez choisi la catégorie suivante :", chosen_category)
 
-            while choice != "y" and choice != "n":
-                # Loop to handle incorrect user input
+                    else:
+                        print("Veuillez entrer un nombre entier parmi les choix disponibles.")
+                        choice = 0
 
-                print("\nYou must choose between 'Yes' by pressing 'y' or 'No' by pressing 'n'.\n")
+                while not chosen_product:
+                    # Tertiary user choice waiting loop
+                    # Ensures a valid product have been selected by user
+
+                    valid_choices = len(ct.ProgramOutput.products)
+
+                    try:
+                        choice = int(input(ct.ProgramOutput.products_display()))
+                    except ValueError:
+                        print("Choix invalide. Vous devez entrer un nombre entier positif, sans espaces.")
+                        choice = 0
+                    
+                    if 0 < choice <= valid_choices:
+                        chosen_product = ct.ProgramOutput.products[choice - 1][2]
+                        print("Vous avez choisi le produit suivant :", chosen_product)
+                        ct.UserRequestHandler.call_substitute(chosen_product)
+
+                    else:
+                        print("Veuillez entrer un nombre entier parmi les choix disponibles.")
+                        choice = 0
+                        
+                
                 choice = input(ct.ProgramOutput.substitute_display())
+                # diplays found substitute and asks if user wants to save it
 
-            if choice == "y":
-                substitute_code = ct.ProgramOutput.substitute["code"]
-                ct.UserRequestHandler.save_substitute(user, login, chosen_product, substitute_code)
-                ct.ProgramOutput.save_display()
+                while choice != "o" and choice != "n":
+                    # Loop to handle incorrect user input
 
-            choice = input(ct.ProgramOutput.next_display())
-            # propose to try another search
+                    print("\nVous devez chosir entre 'Oui' ou 'Non' en entrant 'o' ou 'n'.\n")
+                    choice = input(ct.ProgramOutput.substitute_display())
 
-            while choice != "y" and choice != "n":
-                # Loop to handle incorrect user input
+                if choice == "o":
+                    substitute_code = ct.ProgramOutput.substitute["code"]
+                    ct.UserRequestHandler.save_substitute(user, login, chosen_product, substitute_code)
+                    ct.ProgramOutput.save_display()
 
-                print("\nYou must choose between 'Yes' by pressing 'y' or 'No' by pressing 'n'.\n")
-                choice = input(ct.ProgramOutput.next_display())
+                    print("\n************************************\n")
 
-            if choice != "y":
+                chosen_category = False # Get boolean to initial setting for new substitute research
+                chosen_product = False # Get boolean to initial setting for new substitute research
+            
+            elif choice == 2:
+                ct.UserRequestHandler.past_substitutes(user, login)
+
+                valid_choices = len(ct.ProgramOutput.past_substitutes) + 1
+
+                try:
+                    choice = int(input(ct.ProgramOutput.favorites_display()))
+                except ValueError:
+                    print("Choix invalide. Vous devez entrer un nombre entier positif, sans espaces.")
+                    choice = 0
+                
+                if 0 < choice <= valid_choices - 1:
+                    product = ct.ProgramOutput.past_substitutes[choice][0]
+                    substitute = ct.ProgramOutput.past_substitutes[choice][1]
+                    ct.UserRequestHandler.load_substitution(product, substitute)
+                    ct.ProgramOutput.save_display()
+
+                    print("\n************************************\n")
+
+                elif choice == valid_choices:
+                    pass
+
+                else:
+                    print("Veuillez entrer un nombre entier parmi les choix disponibles.")
+                    choice = 0
+
+            elif choice == 3:
                 logged_in = False # Enables to get back to the begining of main loop
             
-            chosen_category = False # Get boolean to initial setting for new substitute research
-            chosen_product = False # Get boolean to initial setting for new substitute research
+            else:
+                print("Veuillez entrer un nombre entier parmi les choix disponibles.")
+                choice = 0
 
     
 main()
