@@ -3,15 +3,15 @@
 ## *Introduction*
 
 "Open Classroom" Project n°5 for Python Application Developer formation.
-The goal of the project is to request datas from an API and use them to create a database as ressource for a simple application.
+The goal behind this  project is to request data's from an API and use them to create a database as resource for a simple application.
 
 User of the application can choose a food category, then a product of that category and expect the application to provide a more healthy substitute if any exists in the database.
 Sustitute comes along with usefull informations (if they exist) such as:
-* Description
-* Stores where it can be purchased
-* Url to product's page on Open Food Facts
+* Description.
+* Stores where it can be purchased.
+* URL to product's page on Open Food Facts
 
-The application is expected to record previous searches as well for rapid further access
+The application is expected to record previous searches as well for rapid further access.
 
 Please find Open Classroom website [here](https://openclassrooms.com/)
 Please find Open Food Facts API documentation [here](http://en.wiki.openfoodfacts.org/Project:API)
